@@ -124,6 +124,22 @@
     #cardWrap{display:none; pointer-events:auto; width:min(460px, 92vw); padding:12px; border-radius:18px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); box-shadow: var(--shadow); backdrop-filter: blur(10px);}
     #cardWrap.show{display:block;}
     #cardCanvas{width:100%; height:auto; display:block; border-radius:14px; background:rgba(0,0,0,.12);}
+    .stickerStage{width:min(520px, 92vw); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; pointer-events:auto;}
+    .stickerPreview{
+      width:min(430px, 78vw);
+      aspect-ratio:1/1;
+      display:grid;
+      place-items:center;
+      padding:14px;
+      border-radius:24px;
+      background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.045));
+      border:1px solid rgba(255,255,255,.16);
+      box-shadow:0 20px 54px rgba(0,0,0,.34), inset 0 0 36px rgba(255,207,138,.07);
+      backdrop-filter:blur(10px);
+    }
+    .stickerPreview img{max-width:100%; max-height:100%; width:100%; height:100%; object-fit:contain; display:block; image-rendering:auto;}
+    .stickerMissing{font-size:13px; line-height:1.6; color:var(--muted); text-align:center; padding:18px;}
+    .stickerFineprint{font-size:12px; line-height:1.5; color:rgba(255,233,210,.68); text-align:center; max-width:min(460px, 88vw);}
 
     /* 顶部百分比 */
     #matchBar{position:absolute; left:0; right:0; top:0; padding:16px 18px 10px; display:none; justify-content:center; pointer-events:none;}
@@ -325,6 +341,7 @@
         USER_CARD: 4,
         MATCH: 5,
         POSTER: 6,
+        STICKER: 7,
       };
       let scene = Scene.INTRO;
 
@@ -717,6 +734,7 @@
         moodVec: null, // array
         moodSummary: '',
         leaveMsg: '',
+        stickerId: null,
       };
 
       // ---------- People / Stars ----------
@@ -1007,11 +1025,11 @@
         document.getElementById('how').onclick = () => {
           showModal({
             title:'怎么玩（纯离线）',
-            desc:'你将经历 6 个界面：进入 → 旋转地球 → 选择地区 → 情绪气泡 → 生成专属卡 → 同频匹配 → 疗愈海报 + 30s 歌曲。',
+            desc:'你将经历 7 个界面：进入 → 旋转地球 → 选择地区 → 情绪气泡 → 生成专属卡 → 同频匹配 → 疗愈海报 + 30s 歌曲 → 专属贴纸。',
             bodyNodes:[
               Object.assign(document.createElement('div'), { className:'small', innerHTML:
                 `1）地球上闪烁的小星星代表“此刻也有类似心理需求的人”。<br/>
-                 2）第 3 页不是问卷：点气泡，气泡会变大；<b>4.5 秒无操作</b>会自动记录并进入下一题。<br/>
+                 2）第 3 页不是问卷：点气泡，气泡会变大；<b>2.6 秒无操作</b>会自动记录并进入下一题。<br/>
                  3）所有人物均为离线随机生成的虚拟角色，不联网。`
               })
             ],
@@ -1113,16 +1131,72 @@
           opts:['低电量','有点累','刚刚好','满格','过载']
         }
       ];
-      const IDLE_TO_NEXT_MS = 2700;
+      const IDLE_TO_NEXT_MS = 2600;
       let qIndex = 0;
       let bubbles = [];
       let idleAt = 0;
       let lastInteractAt = 0;
+      let qTransitioning = false;
+      let qNextTimer = null;
+      let feedbackToast = null; // { text, t0, dur }
+      let lastFeedbackText = '';
+
+      // ---------- Question Themes (每题一个氛围场：背景渐变 + 气泡色相基调) ----------
+      const QUESTION_THEMES = [
+        // Q1: 更暖一点（靠近主题橙粉）
+        { bg0:'#32142d', bg1:'#140913', bg2:'#07050a', hueBase: 22,  accent:'#ffcf8a' },
+        // Q2: 更柔一点（粉紫/温柔）
+        { bg0:'#2c1232', bg1:'#120816', bg2:'#07050a', hueBase: 330, accent:'#ffb6c2' },
+        // Q3: 更明亮一点（琥珀/能量）
+        { bg0:'#2b1231', bg1:'#1a0b12', bg2:'#07050a', hueBase: 38,  accent:'#ffd07a' },
+      ];
+      let qTheme = QUESTION_THEMES[0];
 
       // ---------- Gentle particles for bubble clicks ----------
       const clickParticles = [];
       const MAX_PARTICLES = 260;
       let dtSec = 1/60;
+
+      // ---------- Ripple rings (点击涟漪反馈) ----------
+      const ripples = []; // {x,y,t,ttl,r0,hue,str}
+      function emitRipple(x, y, hue, strength){
+        ripples.push({
+          x, y,
+          t: 0,
+          ttl: 0.65 + strength*0.25,
+          r0: (18 + strength*10) * DPR,
+          hue,
+          str: strength
+        });
+        if (ripples.length > 18) ripples.shift();
+      }
+      function updateRipples(){
+        for(let i=ripples.length-1;i>=0;i--){
+          const p = ripples[i];
+          p.t += dtSec;
+          if (p.t >= p.ttl) ripples.splice(i,1);
+        }
+      }
+      function drawRipples(g){
+        if (!ripples.length) return;
+        g.save();
+        g.globalCompositeOperation = 'lighter';
+        for(const p of ripples){
+          const u = p.t / p.ttl; // 0..1
+          const a = (1 - u);
+          const r1 = p.r0 + u*u * (140*DPR);
+          const r2 = r1 * 0.68;
+          const r3 = r1 * 0.42;
+          g.lineWidth = (2.5 + p.str*1.2) * DPR;
+          g.strokeStyle = `hsla(${p.hue}, 95%, 78%, ${0.20*a})`;
+          g.beginPath(); g.arc(p.x, p.y, r1, 0, TAU); g.stroke();
+          g.strokeStyle = `hsla(${p.hue+10}, 95%, 82%, ${0.26*a})`;
+          g.beginPath(); g.arc(p.x, p.y, r2, 0, TAU); g.stroke();
+          g.strokeStyle = `hsla(${p.hue+18}, 95%, 88%, ${0.32*a})`;
+          g.beginPath(); g.arc(p.x, p.y, r3, 0, TAU); g.stroke();
+        }
+        g.restore();
+      }
 
       function emitBubbleParticles(x, y, hue, strength){
         const n = Math.round(16 + strength*10);
@@ -1191,12 +1265,16 @@
         scene = Scene.QUESTIONS;
         clearUI();
         hidePersonCard(true);
-        topHint.textContent = '点击气泡，它会变大；4.5 秒无操作将自动记录并进入下一题';
+        topHint.textContent = '点击气泡，它会变大；2.6 秒无操作将自动记录并进入下一题';
         setBottomButtons([{ text:'返回地球', secondary:true, onClick: enterGlobe }]);
 
         qIndex = 0;
         user.moodVec = new Array(24).fill(0); // dynamic sparse vector (enough room)
         user.moodSummary = '';
+        qTransitioning = false;
+        if (qNextTimer) { try{ clearTimeout(qNextTimer); }catch(_){ } }
+        qNextTimer = null;
+        feedbackToast = null;
         nextQuestion();
       }
 
@@ -1207,6 +1285,8 @@
           return;
         }
         const q = QUESTIONS[qIndex];
+        qTheme = QUESTION_THEMES[qIndex % QUESTION_THEMES.length] || QUESTION_THEMES[0];
+        feedbackToast = null;
         setLayer(`
           <h1 class="title" style="font-size:22px;">第 ${qIndex+1} / ${QUESTIONS.length} 题</h1>
           <p class="subtitle">${q.q}</p>
@@ -1228,7 +1308,7 @@
             base: (Math.min(W,H) * (0.052 + localRng()*0.015)),
             r: 0,
             clicks: 0,
-            hue: 18 + localRng()*35,
+            hue: (qTheme.hueBase + (localRng()*28 - 14) + 360) % 360,
             pulse: 0,
           });
         }
@@ -1246,6 +1326,103 @@
           const intensity = clamp(b.clicks / 6, 0, 1) * 0.75 + clamp((b.r - b.base) / (b.base*2.2), 0, 1) * 0.25;
           user.moodVec[baseIdx + i] = clamp(intensity, 0, 1);
         }
+      }
+
+      function pickStrongestBubble(){
+        if (!bubbles || !bubbles.length) return null;
+        let best = null, bestVal = -1;
+        for(const b of bubbles){
+          const intensity = clamp(b.clicks / 6, 0, 1) * 0.75 + clamp((b.r - b.base) / (b.base*2.2), 0, 1) * 0.25;
+          if (intensity > bestVal){
+            bestVal = intensity;
+            best = b;
+          }
+        }
+        if (!best || bestVal < 0.06) return null;
+        return { key: best.key, val: bestVal, hue: best.hue };
+      }
+
+      // 反馈语池：每题多准备一些，随机抽一条（离线伪随机）
+      const FEEDBACK_POOL = {
+        0: [
+          '我听见了：{x}。',
+          '你正在表达：{x}。',
+          '好的，我记住了这份{ x }。',
+          '先把{ x }放在心上，我们继续。',
+          '原来此刻更贴近你的是：{x}。',
+          '收到：{x}。谢谢你说出来。'
+        ],
+        1: [
+          '收到：你需要{x}。',
+          '好，我们把{x}留给现在的你。',
+          '我明白了：你想要{x}。',
+          '这很重要：{x}。',
+          '让{x}先靠近你一点。',
+          '好的，给你一份{x}。'
+        ],
+        2: [
+          '记下了：你此刻更像「{x}」。',
+          '我看见了：你的能量是「{x}」。',
+          '好的，就按「{x}」来照顾你。',
+          '明白：现在是「{x}」。',
+          '我们一起承认：此刻「{x}」。',
+          '好的，保持「{x}」也很好。'
+        ],
+        none: [
+          '没关系，慢慢来。',
+          '你已经做得很好了。',
+          '不用着急，下一题见。',
+          '我在这儿，我们继续。',
+          '呼吸一下就好。',
+          '允许自己说不清。'
+        ]
+      };
+      function formatFeedback(s, x){
+        return String(s).replace(/\{x\}/g, x).replace(/\{\s*x\s*\}/g, x);
+      }
+      function pickFrom(arr, rng){
+        if (!arr || !arr.length) return '';
+        // avoid immediate repeat if possible
+        for(let tries=0; tries<6; tries++){
+          const t = arr[Math.floor(rng()*arr.length)];
+          if (t && t !== lastFeedbackText) return t;
+        }
+        return arr[Math.floor(rng()*arr.length)];
+      }
+
+      function showQuestionFeedback(){
+        const best = pickStrongestBubble();
+        const dur = 1050; // ~1.05s：更清晰可读（含渐入渐出）
+        // seeded random per (question + strongest choice + time slice)
+        const timeSlice = Math.floor(now() / 2000); // roughly changes every 2s
+        const seed = (appSeed ^ (qIndex*1315423911) ^ hashStr((best?best.key:'none') + ':' + timeSlice)) >>> 0;
+        const rng = mulberry32(seed);
+
+        let text = '';
+        if (!best){
+          text = pickFrom(FEEDBACK_POOL.none, rng) || '没关系，慢慢来。';
+        } else {
+          const tpl = pickFrom(FEEDBACK_POOL[qIndex] || FEEDBACK_POOL[0], rng) || '我听见了：{x}。';
+          text = formatFeedback(tpl, best.key);
+        }
+        lastFeedbackText = text;
+        feedbackToast = { text, t0: now(), dur };
+        return dur;
+      }
+
+      function completeQuestion(){
+        if (qTransitioning) return;
+        qTransitioning = true;
+        recordQuestion();
+        const wait = showQuestionFeedback();
+        // 防止 render loop 重复触发
+        idleAt = 1e18;
+        if (qNextTimer) { try{ clearTimeout(qNextTimer); }catch(_){ } }
+        qNextTimer = setTimeout(() => {
+          qTransitioning = false;
+          qIndex++;
+          nextQuestion();
+        }, wait);
       }
 
       function finalizeMoodSummary(){
@@ -1277,6 +1454,7 @@
 
       canvas.addEventListener('pointerdown', (e) => {
         if (scene !== Scene.QUESTIONS) return;
+        if (qTransitioning) return;
         const p = pointerPos(e);
         const hit = bubbleHit(p.x, p.y);
         if (hit){
@@ -1285,6 +1463,7 @@
           hit.pulse = 1;
           const strength = clamp(hit.clicks/6, 0, 1);
           emitBubbleParticles(hit.x, hit.y, hit.hue, strength);
+          emitRipple(hit.x, hit.y, hit.hue, strength);
           lastInteractAt = now();
           idleAt = now() + IDLE_TO_NEXT_MS;
         }
@@ -1527,6 +1706,7 @@
         user.moodVec = null;
         user.moodSummary = '';
         user.leaveMsg = '';
+        user.stickerId = null;
         hidePersonCard(true);
         if (cardWrap) cardWrap.classList.remove('show');
       }
@@ -1679,6 +1859,7 @@
 
         setBottomButtons([
           { text: audio.isPlaying ? '停止歌曲' : '播放歌曲', onClick: toggleMusic },
+          { text:'领取专属贴纸', onClick: enterSticker },
           { text:'重新选择', secondary:true, onClick: () => { stopMusic(true); resetUserState(); enterGlobe(); } },
         ]);
       }
@@ -2417,6 +2598,125 @@
         return `rgba(${r},${g},${b},${a})`;
       }
 
+      // ---------- Sticker ----------
+      const STICKER_COUNT = 24;
+      const STICKER_DIR = './stickers/';
+
+      function ensureStickerAssigned(){
+        if (!user.stickerId){
+          const placeKey = user.place ? `${user.place.label}:${user.place.lat.toFixed(2)},${user.place.lon.toFixed(2)}` : 'unknown';
+          const moodKey = (user.moodVec || []).map(v => Math.round((v || 0) * 1000)).join(',');
+          const matchKey = (match && match.person) ? `${match.person.id}:${match.person.name}:${matchPct}` : 'none';
+          const seed = hashStr(`${appSeed}|${placeKey}|${moodKey}|${matchKey}`);
+          user.stickerId = (seed % STICKER_COUNT) + 1;
+        }
+        return user.stickerId;
+      }
+
+      function stickerNoText(){
+        return String(ensureStickerAssigned()).padStart(2, '0');
+      }
+
+      function stickerAssetPath(no = stickerNoText()){
+        return `${STICKER_DIR}${String(no).padStart(2, '0')}.png`;
+      }
+
+      function updateStickerCode(){
+        const el = document.getElementById('stickerNo');
+        if (el) el.textContent = stickerNoText();
+      }
+
+      function checkStickerAsset(no = stickerNoText()){
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve(stickerAssetPath(no));
+          img.onerror = () => reject(new Error(`missing sticker ${no}`));
+          img.src = stickerAssetPath(no);
+        });
+      }
+
+      function showStickerMissing(no = stickerNoText()){
+        const preview = document.getElementById('stickerPreview');
+        if (!preview) return;
+        preview.innerHTML = `
+          <div class="stickerMissing">
+            没有找到 <b>stickers/${String(no).padStart(2, '0')}.png</b><br/>
+            请把 24 个贴纸原图放入 stickers 文件夹，并命名为 01.png 到 24.png。
+          </div>
+        `;
+      }
+
+      function loadStickerPreview(no = stickerNoText()){
+        const img = document.getElementById('stickerImg');
+        if (!img) return;
+        const src = stickerAssetPath(no);
+        img.onload = () => {
+          topHint.textContent = `已加载原图贴纸 ${String(no).padStart(2, '0')}，页面没有裁剪或重绘`;
+        };
+        img.onerror = () => {
+          topHint.textContent = `贴纸 ${String(no).padStart(2, '0')} 未找到，请确认 stickers/${String(no).padStart(2, '0')}.png 已放入项目目录`;
+          showStickerMissing(no);
+        };
+        img.src = src;
+      }
+
+      function enterSticker(){
+        scene = Scene.STICKER;
+        stopMusic(true);
+        posterAnim.ready = false;
+        clearUI();
+        hidePersonCard(true);
+        if (cardWrap) cardWrap.classList.remove('show');
+        matchBar.classList.remove('show');
+        const no = stickerNoText();
+        topHint.textContent = '这是你的专属圆形贴纸，直接使用原始 PNG 文件，不裁剪、不重绘、不改字';
+        setLayer(`
+          <div class="stickerStage">
+            <h1 class="title" style="font-size:22px; margin-bottom:0;">专属贴纸</h1>
+            <p class="subtitle">系统已为你抽取一个 Mood Earth 原图贴纸。页面只负责展示原 PNG，不做 AI 重绘、不改文字、不裁切边缘。</p>
+            <div id="stickerPreview" class="stickerPreview">
+              <img id="stickerImg" alt="Mood Earth 专属贴纸 ${no}" decoding="async" />
+            </div>
+            <div class="pill"><span>贴纸编号</span><b id="stickerNo">--</b></div>
+            <div class="stickerFineprint">打印时请使用下载的原始 PNG 文件；预览区会自动适配屏幕，但不会改变图片内容。</div>
+          </div>
+        `);
+        updateStickerCode();
+        loadStickerPreview(no);
+        setBottomButtons([
+          { text:'下载原图 PNG', onClick: downloadStickerPng },
+          { text:'返回海报', secondary:true, onClick: enterPoster },
+          { text:'重新选择', secondary:true, onClick: () => { resetUserState(); enterGlobe(); } },
+        ]);
+      }
+
+      function showStickerDownloadHelp(no = stickerNoText()){
+        showModal({
+          title:'贴纸原图没有找到',
+          desc:`请确认项目目录里存在 stickers/${String(no).padStart(2, '0')}.png，并且文件名是两位数字编号。`,
+          bodyNodes:[
+            Object.assign(document.createElement('div'), { className:'small', textContent:'下载按钮会直接下载这张原始 PNG，不会经过 canvas，也不会压缩或改字。' })
+          ],
+          actions:[{text:'知道了', onClick: closeModal}]
+        });
+      }
+
+      function downloadStickerPng(){
+        const no = stickerNoText();
+        const url = stickerAssetPath(no);
+        checkStickerAsset(no).then(() => {
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `mood-earth-sticker-${no}.png`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          topHint.textContent = `正在下载原图 PNG：${a.download}`;
+        }).catch(() => {
+          showStickerDownloadHelp(no);
+        });
+      }
+
       function toggleMusic(){
         if (audio.isPlaying) stopMusic();
         else startMusic();
@@ -2424,6 +2724,7 @@
         if (scene === Scene.POSTER){
           setBottomButtons([
             { text: audio.isPlaying ? '停止歌曲' : '播放歌曲', onClick: toggleMusic },
+            { text:'领取专属贴纸', onClick: enterSticker },
             { text:'重新选择', secondary:true, onClick: () => { stopMusic(true); resetUserState(); enterGlobe(); } },
           ]);
         }
@@ -2434,47 +2735,148 @@
         stopMusic(true);
         const AC = window.AudioContext || window.webkitAudioContext;
         if (!AC) return;
-        const ac = new AC({ latencyHint:'interactive' });
+        let ac = null;
+        try{
+          ac = new AC({ latencyHint:'interactive' });
+        }catch(e){
+          // 某些设备可能因权限/资源不足导致创建失败
+          topHint.textContent = '音乐启动失败：无法创建音频引擎（AudioContext）。';
+          return;
+        }
+        // 某些浏览器/安卓 WebView 会把新建的 AudioContext 置为 suspended，这里主动 resume
+        const ensureRunning = () => {
+          try{
+            if (ac && ac.state !== 'running' && ac.resume) ac.resume();
+          }catch(_){}
+          // 如果仍未 running，提示用户再点击一次（常见于移动端策略）
+          if (ac && ac.state !== 'running'){
+            topHint.textContent = '提示：系统可能阻止了音频，请再点一次屏幕/“播放歌曲”（并确认媒体音量未静音）。';
+            // 绑定一次性的“任意点击恢复音频”
+            const onceResume = () => {
+              try{ ac.resume && ac.resume(); }catch(_){}
+            };
+            try{ window.addEventListener('pointerdown', onceResume, { once:true, passive:true }); }catch(_){}
+          }
+        };
+        ensureRunning();
+        // 再次异步确认（避免某些环境 resume 需要一点时间）
+        setTimeout(() => {
+          try{
+            if (ac && ac.state !== 'running'){
+              topHint.textContent = '提示：音频仍未激活，请再点击一次屏幕（或检查手机/系统媒体音量）。';
+            }
+          }catch(_){}
+        }, 220);
         audio.ctx = ac;
         audio.nodes = [];
         audio.startedAt = ac.currentTime;
-        audio.stopAt = audio.startedAt + 30.2;
         audio.isPlaying = true;
 
         const master = ac.createGain();
-        master.gain.value = 0.85;
+        master.gain.value = 0.62;
+        const masterLowCut = ac.createBiquadFilter();
+        masterLowCut.type = 'highpass';
+        masterLowCut.frequency.value = 150;
+        masterLowCut.Q.value = 0.65;
+        const masterAir = ac.createBiquadFilter();
+        masterAir.type = 'highshelf';
+        masterAir.frequency.value = 3600;
+        masterAir.gain.value = 1.4;
         const comp = ac.createDynamicsCompressor();
-        comp.threshold.value = -18;
-        comp.knee.value = 18;
-        comp.ratio.value = 3.5;
-        comp.attack.value = 0.012;
-        comp.release.value = 0.18;
-        master.connect(comp).connect(ac.destination);
+        comp.threshold.value = -16;
+        comp.knee.value = 24;
+        comp.ratio.value = 2.2;
+        comp.attack.value = 0.018;
+        comp.release.value = 0.22;
+        master.connect(masterLowCut).connect(masterAir).connect(comp).connect(ac.destination);
+        audio.nodes.push(master, masterLowCut, masterAir, comp);
 
         // reverb
         const convolver = ac.createConvolver();
-        convolver.buffer = makeImpulse(ac, 1.8, 2.2);
+        convolver.buffer = makeImpulse(ac, 1.25, 3.1);
         const revGain = ac.createGain();
-        revGain.gain.value = 0.32;
+        revGain.gain.value = 0.16;
         convolver.connect(revGain).connect(master);
+        audio.nodes.push(convolver, revGain);
 
-        // mood -> tempo/key
-        const { tempo, scale, mode, brightness } = deriveMusicMood();
+        // mood -> “音乐画像”（会根据用户心理状态明显变化：速度/调式/和声/节奏密度/音色）
+        // 每次点击“播放”都生成一个独立随机盐值 → 同一心理状态也能生成不同旋律/编曲
+        let playSalt = 0;
+        try{
+          const u = new Uint32Array(1);
+          // ⚠️ 不能直接引用 crypto（有些环境 crypto 未定义会直接抛 ReferenceError）
+          (window.crypto && window.crypto.getRandomValues)
+            ? window.crypto.getRandomValues(u)
+            : (u[0] = (Math.random()*0xffffffff)>>>0);
+          playSalt = u[0] >>> 0;
+        } catch(_){
+          playSalt = (Math.random()*0xffffffff)>>>0;
+        }
+        audio.playSalt = playSalt;
+
+        let profile = null;
+        try{
+          profile = deriveMusicProfile(playSalt);
+        }catch(e){
+          topHint.textContent = '音乐启动失败：生成参数出错。';
+          console.error(e);
+          return;
+        }
+        // 用一个“歌曲编号/风格”提示你：不同心理状态应该对应不同的 songId
+        try{
+          const sid = profile.songId ? `#${profile.songId}` : '';
+          topHint.textContent = `歌曲${sid} · ${profile.tag} · ${Math.round(profile.tempo||0)}BPM`;
+        }catch(_){}
+        const tempo = profile.tempo;
         const beat = 60 / tempo;
         const start = ac.currentTime + 0.05;
 
-        // helper schedule note
-        const toFreq = (midi) => 440 * Math.pow(2, (midi-69)/12);
-        const rootMidi = mode === 'major' ? 60 : 57; // C or A minor
+        // 歌曲时长：根据 tempo 自动取 bar 数，尽量贴近 30s
+        const bars = clamp(Math.round(30 / (4*beat)), 7, 14);
+        const songLen = bars * 4 * beat;
+        audio.stopAt = audio.startedAt + songLen + 0.8;
 
-        // --- Drums ---
-        scheduleDrums(ac, master, convolver, start, beat, brightness);
-        // --- Bass ---
-        scheduleBass(ac, master, convolver, start, beat, rootMidi, scale);
-        // --- Pad ---
-        schedulePad(ac, master, convolver, start, beat, rootMidi, scale, brightness);
-        // --- Melody ---
-        scheduleMelody(ac, master, convolver, start, beat, rootMidi, scale, brightness);
+        // reverb mix by profile
+        revGain.gain.value = profile.reverbMix;
+
+        // delay (轻量回声，让旋律更“像歌”、更有空间感)
+        const delaySend = ac.createGain();
+        delaySend.gain.value = (profile.delay && profile.delay.enabled) ? (profile.delay.mix || 0.18) : 0.0;
+        const delay = ac.createDelay(1.2);
+        const fb = ac.createGain();
+        fb.gain.value = (profile.delay && profile.delay.enabled) ? (profile.delay.feedback || 0.16) : 0.0;
+        delay.delayTime.value = beat * ((profile.delay && profile.delay.timeMul) ? profile.delay.timeMul : 0.75);
+        const delayTone = ac.createBiquadFilter();
+        delayTone.type = 'highpass';
+        delayTone.frequency.value = 520;
+        delayTone.Q.value = 0.55;
+        delaySend.connect(delay);
+        delay.connect(delayTone);
+        delayTone.connect(fb).connect(delay);
+        delayTone.connect(master);
+        audio.nodes.push(delaySend, delay, delayTone, fb);
+
+        // --- Drums / Bass / Pad / Melody / (optional Arp) ---
+        if (profile.drums && profile.drums.enabled){
+          scheduleDrums(ac, master, convolver, start, beat, bars, profile);
+        }
+        if (profile.perc && profile.perc.enabled){
+          schedulePerc(ac, master, convolver, delaySend, start, beat, bars, profile);
+        }
+        scheduleBass(ac, master, convolver, start, beat, bars, profile);
+        schedulePad(ac, master, convolver, start, beat, bars, profile);
+        scheduleMelody(ac, master, convolver, delaySend, start, beat, bars, profile);
+        if (profile.arp && profile.arp.enabled){
+          scheduleArp(ac, master, convolver, delaySend, start, beat, bars, profile);
+        }
+        if (profile.counter && profile.counter.enabled){
+          scheduleCounter(ac, master, convolver, delaySend, start, beat, bars, profile);
+        }
+        if (profile.sparkle && profile.sparkle.enabled){
+          scheduleSparkle(ac, master, convolver, delaySend, start, beat, bars, profile);
+        }
+        // pop 的“节奏分解和弦”层（像钢琴/吉他扫弦，填满空隙）
+        scheduleChops(ac, master, convolver, delaySend, start, beat, bars, profile);
 
         // fade out
         master.gain.setValueAtTime(master.gain.value, audio.stopAt - 1.6);
@@ -2486,10 +2888,11 @@
           if (scene === Scene.POSTER){
             setBottomButtons([
               { text: audio.isPlaying ? '停止歌曲' : '播放歌曲', onClick: toggleMusic },
+              { text:'领取专属贴纸', onClick: enterSticker },
               { text:'重新选择', secondary:true, onClick: () => { stopMusic(true); resetUserState(); enterGlobe(); } },
             ]);
           }
-        }, 31000);
+        }, Math.round((songLen + 1.2) * 1000));
       }
 
       function stopMusic(forceClose=false){
@@ -2508,18 +2911,439 @@
         audio.nodes = [];
       }
 
-      function deriveMusicMood(){
+      function deriveMusicProfile(playSalt = 0){
+        // user.moodVec slots:
+        // Q1: 0..5 迷茫/孤独/焦虑/平静/兴奋/想被理解
+        // Q2: 8..13 陪伴/安静/鼓励/方向/释放/被看见
+        // Q3: 16..20 低电量/有点累/刚刚好/满格/过载
         const v = user.moodVec || [];
-        const energy = clamp((v.reduce((a,b)=>a+b,0) / 6) || 0.8, 0, 1.3);
-        const anxious = clamp((v[2]||0) + (v[0]||0)*0.3, 0, 1.2);
-        const calm = clamp((v[3]||0) + (v[6]||0) + (v[9]||0)*0.6, 0, 1.4);
-        const tempo = Math.round(66 + energy*22 - calm*10 + anxious*6); // ~60-92
-        const mode = (calm > anxious*0.9 && energy < 1.0) ? 'major' : (anxious > 0.7 ? 'minor' : 'major');
-        const brightness = clamp(0.35 + energy*0.4 - anxious*0.2 + calm*0.15, 0.2, 0.95);
-        const scale = mode === 'major'
-          ? [0,2,4,5,7,9,11]
-          : [0,2,3,5,7,8,10];
-        return { tempo, scale, mode, brightness };
+        const topChoice = (startIdx, labels) => {
+          let bi = 0, bv = -1;
+          for(let i=0;i<labels.length;i++){
+            const val = v[startIdx + i] || 0;
+            if (val > bv){ bv = val; bi = i; }
+          }
+          return { idx: bi, label: labels[bi] || '', val: Math.max(0, bv) };
+        };
+        const q1 = topChoice(0,  ['迷茫','孤独','焦虑','平静','兴奋','想被理解']);
+        const q2 = topChoice(8,  ['陪伴','安静','鼓励','方向','释放','被看见']);
+        const q3 = topChoice(16, ['低电量','有点累','刚刚好','满格','过载']);
+        const confused = v[0]||0;
+        const lonely = v[1]||0;
+        const anxious = v[2]||0;
+        const calm = (v[3]||0) + (v[9]||0)*0.8 + (v[17]||0)*0.35;
+        const excited = (v[4]||0) + (v[19]||0)*0.9 + (v[20]||0)*0.8;
+        const understood = v[5]||0;
+        const needCompany = v[8]||0;
+        const needQuiet = v[9]||0;
+        const needEnc = v[10]||0;
+        const needDir = v[11]||0;
+        const needRelease = v[12]||0;
+        const needSeen = v[13]||0;
+        const low = v[16]||0, tired = v[17]||0, ok = v[18]||0, full = v[19]||0, overload = v[20]||0;
+
+        // energy estimate (0..1.2)
+        const energy = clamp(
+          0.15 + full*0.85 + ok*0.55 + overload*1.0 - low*0.7 - tired*0.45,
+          0, 1.2
+        );
+        const tension = clamp(anxious*0.85 + overload*0.6 + needRelease*0.55 + confused*0.25, 0, 1.4);
+        const softness = clamp((needQuiet + calm*0.7 + ok*0.3) - tension*0.25, 0, 1.4);
+        const warmth = clamp(understood*0.55 + needCompany*0.55 + needSeen*0.45 + lonely*0.35, 0, 1.4);
+
+        // pick a tag (6 archetypes)
+        let tag = 'calm';
+        if (excited > 0.75 || energy > 0.95) tag = 'spark';
+        else if (tension > 0.92) tag = 'release';
+        else if (lonely + needCompany + warmth > 1.05) tag = 'hug';
+        else if (confused + needDir > 0.85) tag = 'compass';
+        else if (needEnc > 0.75) tag = 'rise';
+        else if (softness > 0.85) tag = 'calm';
+
+        // base params by tag
+        const presets = {
+          calm: {
+            tempo: 78, mode:'major', rootMidi: 60, // C
+            scale: [0,2,4,7,9], // major pentatonic（更“治愈但不犯困”）
+            brightness: 0.42,
+            reverbMix: 0.20,
+            drums:{ enabled:false, style:'soft' },
+            bass:{ pattern:[0,4,2,4, 0,5,2,4], step:1.0 },
+            pad:{ chordProg:[0,4,5,2, 0,4,5,1], voicing:'add9' },
+            melody:{ density:0.42, style:'bell', step:0.5 }
+          },
+          hug: {
+            tempo: 92, mode:'major', rootMidi: 62, // D
+            scale: [0,2,4,5,7,9,11], // major（更欢快一点）
+            brightness: 0.52,
+            reverbMix: 0.18,
+            drums:{ enabled:true, style:'brush' },
+            bass:{ pattern:[0,5,3,5, 0,4,5,3], step:0.5 },
+            pad:{ chordProg:[0,5,3,4, 0,5,4,3], voicing:'sus2' },
+            melody:{ density:0.62, style:'shimmer', step:0.25 },
+            arp:{ enabled:true, rate:0.5 }
+          },
+          release: {
+            tempo: 112, mode:'minor', rootMidi: 57, // A
+            scale: [0,2,3,5,7,9,10], // dorian-ish（更“向上/不阴郁”）
+            brightness: 0.55,
+            reverbMix: 0.16,
+            drums:{ enabled:true, style:'drive' },
+            bass:{ pattern:[0,3,5,7, 0,5,7,3], step:0.5 },
+            pad:{ chordProg:[0,6,3,4, 0,6,4,3], voicing:'triad' },
+            melody:{ density:0.72, style:'pluck', step:0.25 },
+            arp:{ enabled:true, rate:0.25 }
+          },
+          spark: {
+            tempo: 122, mode:'major', rootMidi: 67, // G
+            scale: [0,2,4,5,7,9,11], // major
+            brightness: 0.82,
+            reverbMix: 0.14,
+            drums:{ enabled:true, style:'four' },
+            bass:{ pattern:[0,4,5,4, 5,4,2,4], step:0.5 },
+            pad:{ chordProg:[0,4,5,3, 0,4,1,5], voicing:'triad' },
+            melody:{ density:0.78, style:'shimmer', step:0.25 },
+            arp:{ enabled:true, rate:0.25 }
+          },
+          compass: {
+            tempo: 96, mode:'minor', rootMidi: 59, // B
+            scale: [0,2,3,5,7,9,10], // dorian-ish（探索但不压抑）
+            brightness: 0.48,
+            reverbMix: 0.18,
+            drums:{ enabled:true, style:'steady' },
+            bass:{ pattern:[0,2,5,2, 5,4,2,4], step:0.5 },
+            pad:{ chordProg:[0,2,5,4, 0,2,4,1], voicing:'add9' },
+            melody:{ density:0.66, style:'pluck', step:0.25 },
+            arp:{ enabled:true, rate:0.5 }
+          },
+          rise: {
+            tempo: 110, mode:'major', rootMidi: 64, // E
+            scale: [0,2,4,5,7,9,11],
+            brightness: 0.74,
+            reverbMix: 0.16,
+            drums:{ enabled:true, style:'steady' },
+            bass:{ pattern:[0,4,5,2, 0,5,4,2], step:0.5 },
+            pad:{ chordProg:[0,5,4,3, 0,5,2,4], voicing:'sus2' },
+            melody:{ density:0.74, style:'shimmer', step:0.25 },
+            arp:{ enabled:true, rate:0.5 }
+          }
+        };
+
+        const p = presets[tag] || presets.calm;
+
+        // gently personalize by mood strengths
+        // 让整体更“欢快”：整体 tempo 上移，并随能量再上推
+        const tempo = clamp(Math.round(p.tempo + 6 + (energy-0.55)*22 - softness*2 + tension*1.5), 72, 138);
+        const brightness = clamp(p.brightness + energy*0.18 + softness*0.10 - tension*0.10, 0.18, 0.92);
+        const reverbMix = clamp(p.reverbMix + softness*0.05 - tension*0.05, 0.10, 0.28);
+
+        // deterministic seed per user mood (so different mood => different melody)
+        let moodHash = 0;
+        for(let i=0;i<Math.min(24, v.length);i++){
+          moodHash = (moodHash + ((i+7) * Math.floor((v[i]||0)*1000))) >>> 0;
+          moodHash = ((moodHash << 5) | (moodHash >>> 27)) >>> 0;
+        }
+        // 让“不同心理状态”更明显地产生不同音乐：把每题的主选择也作为签名参与种子
+        const sig = `${tag}|${q1.label}|${q2.label}|${q3.label}|${tempo}|${(playSalt>>>0).toString(16)}`;
+        const baseSeed = (appSeed ^ moodHash ^ hashStr(sig)) >>> 0;
+        const seed = (baseSeed ^ (playSalt>>>0)) >>> 0;
+        const rr = mulberry32(seed ^ 0x51f0aa55);
+
+        // 关键/调性：由第 1 题主选择决定（让不同情绪更“听得出来”）
+        const rootByQ1 = {
+          '迷茫': 59,     // B
+          '孤独': 62,     // D
+          '焦虑': 57,     // A
+          '平静': 60,     // C
+          '兴奋': 67,     // G
+          '想被理解': 64  // E
+        };
+        const shiftByQ2 = { '陪伴': 0, '安静': -2, '鼓励': 2, '方向': 0, '释放': -5, '被看见': 5 };
+        let rootMidi = (rootByQ1[q1.label] != null ? rootByQ1[q1.label] : p.rootMidi);
+        rootMidi = clamp(rootMidi + (shiftByQ2[q2.label] || 0), 52, 72);
+        // 让同一个 tag 也会出现不同走向：随机旋转/轻微变体和声进行
+        const chordProg = ((presets[tag]||presets.calm).pad && (presets[tag]||presets.calm).pad.chordProg)
+          ? (presets[tag]||presets.calm).pad.chordProg.slice()
+          : [0,5,3,4, 0,5,4,3];
+        const rot = Math.floor(rr()*chordProg.length);
+        const chordProg2 = chordProg.slice(rot).concat(chordProg.slice(0, rot));
+        if (rr() < 0.18) { // small surprise
+          const j = Math.floor(rr()*chordProg2.length);
+          chordProg2[j] = (chordProg2[j] + (rr()<0.5 ? 1 : -1) + 7) % 7;
+        }
+
+        // 用户偏好：更像“流行歌”的走向（旋律更主导 + 更常见的流行和声进行）
+        const genre = 'pop';
+        const songId = (hashStr(sig) >>> 0).toString(16).padStart(8,'0').slice(0,6);
+
+        return {
+          tag,
+          genre,
+          songId,
+          seed,
+          tempo,
+          mode: p.mode,
+          rootMidi,
+          scale: p.scale.slice(),
+          brightness,
+          reverbMix,
+          drums: p.drums,
+          // pop：即使 calm 也给一点点律动（很轻），避免太空
+          perc: Object.assign({ enabled: true, density: (tag==='calm') ? 0.35 : ((tag==='spark'||tag==='release') ? 1.0 : 0.75) }, (p.perc||{})),
+          bass: p.bass,
+          pad: Object.assign({}, p.pad || {}, { chordProg: chordProg2 }),
+          melody: p.melody,
+          arp: p.arp || { enabled:false },
+          // pop：副旋律/点缀更多出现在副歌段落（更像“歌”的结构）
+          counter: Object.assign({ enabled: true, density: 0.55 }, (p.counter||{})),
+          sparkle: Object.assign({ enabled: true, density: 0.42 }, (p.sparkle||{})),
+          delay: Object.assign({ enabled:true, timeMul:0.75, mix:0.10, feedback:0.14 }, (p.delay||{}))
+        };
+      }
+
+      // ---------- Extra layers (让音乐不单调) ----------
+      function isChorusBar(bar, bars){
+        // 简单副歌划分：8bars 时通常 4-7 为副歌；更长时最后 4 bars 也当副歌
+        if (bars >= 8){
+          if (bar >= 4 && bar <= 7) return true;
+          if (bar >= bars - 4) return true;
+          return false;
+        }
+        return bar >= Math.floor(bars*0.5);
+      }
+      function schedulePerc(ac, master, reverb, delaySend, start, beat, bars, profile){
+        // airy ticks + tiny claps. Keep noise very short and high-passed so it never becomes a low rumble.
+        const dens = (profile.perc && profile.perc.density) ? profile.perc.density : 0.8;
+        const g = ac.createGain();
+        g.gain.value = 0.045 + (profile.brightness||0.5)*0.035;
+        g.connect(master);
+        g.connect(reverb);
+        if (delaySend) g.connect(delaySend);
+        const localRng = mulberry32(profile.seed ^ 0x6d2b79f5);
+        const rate = (profile.tag==='spark' ? 0.25 : 0.5); // 16ths or 8ths in beat units
+        const stepsPerBar = Math.round(4 / rate);
+        for(let bar=0; bar<bars; bar++){
+          for(let step=0; step<stepsPerBar; step++){
+            const t = start + (bar*4 + step*rate) * beat;
+            const onOff = (step % 2 === 1);
+            const p = (onOff ? 0.82 : 0.58) * dens;
+            if (localRng() < p){
+              shaker(ac, g, t, Math.min(0.035, beat*rate*0.18), 9200 + (localRng()*1800));
+            }
+            // pop：副歌的 clap 更明确；主歌更克制
+            const clapProb = isChorusBar(bar, bars) ? (0.72*dens) : (0.38*dens);
+            if ((step === Math.round(1/rate) || step === Math.round(3/rate)) && localRng() < clapProb){
+              clap(ac, g, t + beat*0.02, 0.055 + localRng()*0.025);
+            }
+          }
+        }
+      }
+
+      function shaker(ac, out, t, dur, freq){
+        const noise = ac.createBufferSource();
+        noise.buffer = whiteNoise(ac, dur);
+        const hp = ac.createBiquadFilter();
+        hp.type = 'highpass';
+        hp.frequency.setValueAtTime(freq, t);
+        hp.Q.value = 0.7;
+        const g = ac.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.18, t+0.004);
+        g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+        noise.connect(hp).connect(g).connect(out);
+        noise.start(t); noise.stop(t+dur+0.02);
+        audio.nodes.push(noise, hp, g);
+      }
+
+      function clap(ac, out, t, dur){
+        const noise = ac.createBufferSource();
+        noise.buffer = whiteNoise(ac, dur);
+        const bp = ac.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.setValueAtTime(2400, t);
+        bp.Q.value = 1.2;
+        const g = ac.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.22, t+0.006);
+        g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+        noise.connect(bp).connect(g).connect(out);
+        noise.start(t); noise.stop(t+dur+0.02);
+        audio.nodes.push(noise, bp, g);
+      }
+
+      function scheduleCounter(ac, master, reverb, delaySend, start, beat, bars, profile){
+        // counter melody: soft glass lead with tiny vibrato, sparse but catchy
+        const dens = (profile.counter && profile.counter.density) ? profile.counter.density : 0.4;
+        const g = ac.createGain();
+        g.gain.value = 0.035 + (profile.brightness||0.5)*0.035;
+        const hasPan = !!ac.createStereoPanner;
+        let out = g;
+        if (hasPan){
+          const pan = ac.createStereoPanner();
+          pan.pan.value = (profile.tag==='spark') ? 0.35 : -0.25;
+          g.connect(pan);
+          pan.connect(master);
+          pan.connect(reverb);
+          if (delaySend) pan.connect(delaySend);
+          audio.nodes.push(g, pan);
+          out = pan;
+        } else {
+          g.connect(master); g.connect(reverb); if (delaySend) g.connect(delaySend);
+          audio.nodes.push(g);
+        }
+        const localRng = mulberry32(profile.seed ^ 0x8f1bbcdc);
+        const scale = profile.scale;
+        const root = profile.rootMidi;
+        const stepBeats = 0.5;
+        const stepsPerBar = 8;
+        for(let bar=0; bar<bars; bar++){
+          // pop：副歌才“出副旋律”，主歌不要抢主旋律
+          if (!isChorusBar(bar, bars) && localRng() < 0.72) continue;
+          for(let step=0; step<stepsPerBar; step++){
+            const t0 = start + (bar*4 + step*stepBeats) * beat;
+            if (localRng() > dens) continue;
+            const deg = (step*2 + Math.floor(localRng()*3)) % scale.length;
+            const midi = root + 24 + scale[deg] + (localRng()<0.25 ? 12 : 0);
+            counterLead(ac, out, t0 + (localRng()*2-1)*beat*0.02, beat*0.35, midi, profile.brightness||0.5);
+          }
+        }
+      }
+
+      function counterLead(ac, out, t, dur, midi, brightness){
+        const o = ac.createOscillator();
+        o.type = 'triangle';
+        const f = 440*Math.pow(2,(midi-69)/12);
+        o.frequency.setValueAtTime(f, t);
+        // vibrato
+        const lfo = ac.createOscillator();
+        const lfoG = ac.createGain();
+        lfo.type = 'sine';
+        lfo.frequency.setValueAtTime(5.2 + brightness*2.0, t);
+        lfoG.gain.setValueAtTime(2 + brightness*4, t);
+        lfo.connect(lfoG).connect(o.frequency);
+        const g = ac.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.42, t+0.012);
+        g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+        const lp = ac.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.setValueAtTime(1400 + brightness*2600, t);
+        lp.Q.value = 0.6;
+        o.connect(g).connect(lp).connect(out);
+        o.start(t); o.stop(t+dur+0.02);
+        lfo.start(t); lfo.stop(t+dur+0.02);
+        audio.nodes.push(o,lfo,lfoG,g,lp);
+      }
+
+      function scheduleSparkle(ac, master, reverb, delaySend, start, beat, bars, profile){
+        // sparse high bells for “magic”
+        const dens = (profile.sparkle && profile.sparkle.density) ? profile.sparkle.density : 0.3;
+        const g = ac.createGain();
+        g.gain.value = 0.032 + (profile.brightness||0.5)*0.03;
+        const hp = ac.createBiquadFilter();
+        hp.type = 'highpass';
+        hp.frequency.value = 780;
+        hp.Q.value = 0.5;
+        g.connect(hp).connect(master);
+        hp.connect(reverb);
+        if (delaySend) hp.connect(delaySend);
+        audio.nodes.push(g, hp);
+        const localRng = mulberry32(profile.seed ^ 0x1234abcd);
+        const scale = profile.scale;
+        const root = profile.rootMidi;
+        for(let bar=0; bar<bars; bar++){
+          // pop：副歌点缀更多，主歌更少
+          const d = isChorusBar(bar, bars) ? dens : dens*0.45;
+          for(let k=0;k<4;k++){
+            const t = start + (bar*4 + k) * beat + beat*(0.12 + localRng()*0.28);
+            if (localRng() > d) continue;
+            const deg = Math.floor(localRng()*scale.length);
+            const midi = root + 36 + scale[deg] + (localRng()<0.5 ? 12 : 0);
+            bellNote(ac, g, t, beat*(0.45 + localRng()*0.35), midi, profile.brightness||0.5);
+          }
+        }
+      }
+
+      function scheduleChops(ac, master, reverb, delaySend, start, beat, bars, profile){
+        // pop chops: short airy chord stabs / strums
+        const g = ac.createGain();
+        g.gain.value = 0.035 + (profile.brightness||0.5)*0.035;
+        g.connect(master);
+        g.connect(reverb);
+        if (delaySend) g.connect(delaySend);
+        audio.nodes.push(g);
+
+        const localRng = mulberry32(profile.seed ^ 0x3344aa11);
+        const chordProg = (profile.pad && profile.pad.chordProg) ? profile.pad.chordProg : [0,4,5,3];
+        const scale = profile.scale;
+        const rootMidi = profile.rootMidi;
+        const voicing = (profile.pad && profile.pad.voicing) ? profile.pad.voicing : 'triad';
+
+        // 8th offbeat stabs for verse, 16th for chorus
+        for(let bar=0; bar<bars; bar++){
+          const isCh = isChorusBar(bar, bars);
+          const rate = isCh ? 0.25 : 0.5; // in beats
+          const steps = Math.round(4 / rate);
+          const deg = chordProg[bar % chordProg.length] || 0;
+          const chordRoot = rootMidi + 12 + scale[deg % scale.length];
+          const chord = (() => {
+            if (voicing === 'sus2') return [chordRoot, chordRoot+2, chordRoot+7];
+            if (voicing === 'add9') return [chordRoot, chordRoot+7, chordRoot+14];
+            return [chordRoot, chordRoot+7, chordRoot+12];
+          })();
+          for(let s=0; s<steps; s++){
+            const t0 = start + (bar*4 + s*rate) * beat;
+            // mainly offbeats
+            const off = (rate === 0.5) ? (s % 2 === 1) : (s % 4 === 2);
+            const p = off ? (isCh ? 0.85 : 0.65) : (isCh ? 0.22 : 0.12);
+            if (localRng() > p) continue;
+            popChordStab(ac, g, t0 + (localRng()*2-1)*beat*0.01, beat*rate*0.35, chord, profile.brightness||0.5, isCh);
+          }
+        }
+      }
+
+      function popChordStab(ac, out, t, dur, midis, brightness, chorus){
+        const hasPan = !!ac.createStereoPanner;
+        const basePan = chorus ? 0.22 : -0.18;
+        for(let i=0;i<midis.length;i++){
+          const m = midis[i];
+          const o1 = ac.createOscillator();
+          const o2 = ac.createOscillator();
+          o1.type = 'triangle';
+          o2.type = 'sine';
+          const f = 440*Math.pow(2,(m-69)/12);
+          o1.frequency.setValueAtTime(f, t);
+          o2.frequency.setValueAtTime(f, t);
+          o1.detune.value = -2 - brightness*2;
+          o2.detune.value =  2 + brightness*2;
+          const g = ac.createGain();
+          g.gain.setValueAtTime(0.0001, t);
+          g.gain.exponentialRampToValueAtTime(0.24, t+0.01);
+          g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+          const hp = ac.createBiquadFilter();
+          hp.type='highpass';
+          hp.frequency.setValueAtTime(420, t);
+          hp.Q.value = 0.5;
+          const lp = ac.createBiquadFilter();
+          lp.type='lowpass';
+          lp.frequency.setValueAtTime(1700 + brightness*2600, t);
+          lp.frequency.exponentialRampToValueAtTime(1100 + brightness*1200, t+dur);
+          lp.Q.value = 0.7;
+          if (hasPan){
+            const pan = ac.createStereoPanner();
+            const spread = (i/(Math.max(1,midis.length-1))*2 - 1) * 0.22;
+            pan.pan.setValueAtTime(clamp(basePan + spread, -0.6, 0.6), t);
+            o1.connect(g); o2.connect(g);
+            g.connect(hp).connect(lp).connect(pan).connect(out);
+            audio.nodes.push(pan);
+          } else {
+            o1.connect(g); o2.connect(g);
+            g.connect(hp).connect(lp).connect(out);
+          }
+          o1.start(t); o2.start(t);
+          o1.stop(t+dur+0.02); o2.stop(t+dur+0.02);
+          audio.nodes.push(o1,o2,g,hp,lp);
+        }
       }
 
       function makeImpulse(ac, seconds, decay){
@@ -2530,29 +3354,55 @@
           const data = buf.getChannelData(ch);
           for(let i=0;i<len;i++){
             const t = i / len;
-            data[i] = (Math.random()*2-1) * Math.pow(1 - t, decay);
+            data[i] = (Math.random()*2-1) * 0.18 * Math.pow(1 - t, decay);
           }
         }
         return buf;
       }
 
-      function scheduleDrums(ac, master, reverb, start, beat, brightness){
-        const kickGain = ac.createGain(); kickGain.gain.value = 0.9;
-        const snGain = ac.createGain(); snGain.gain.value = 0.34;
-        const hhGain = ac.createGain(); hhGain.gain.value = 0.18 + brightness*0.12;
+      function scheduleDrums(ac, master, reverb, start, beat, bars, profile){
+        const brightness = profile.brightness || 0.5;
+        const style = (profile.drums && profile.drums.style) || 'steady';
+        const kickGain = ac.createGain(); kickGain.gain.value = 0.22;
+        const snGain = ac.createGain(); snGain.gain.value = 0.12;
+        const hhGain = ac.createGain(); hhGain.gain.value = 0.07 + brightness*0.05;
         kickGain.connect(master); snGain.connect(master); hhGain.connect(master);
         kickGain.connect(reverb); snGain.connect(reverb); hhGain.connect(reverb);
 
-        for(let bar=0; bar<8; bar++){
+        for(let bar=0; bar<bars; bar++){
           for(let i=0;i<4;i++){
             const t = start + (bar*4 + i) * beat;
-            // kick on 1 and 3
-            if (i===0 || i===2) kick(ac, kickGain, t, 0.22, 110);
-            // snare on 2 and 4
-            if (i===1 || i===3) snare(ac, snGain, t, 0.18);
-            // hihat in 8ths
-            hihat(ac, hhGain, t, 0.06, 8000);
-            hihat(ac, hhGain, t + beat*0.5, 0.045, 9200);
+            if (style === 'soft'){
+              if (i===0) kick(ac, kickGain, t, 0.12, 180);
+              if (i===2 && bar%2===1) kick(ac, kickGain, t, 0.10, 176);
+              if (i===3 && bar%2===0) snare(ac, snGain, t, 0.12);
+              if (i%2===0) hihat(ac, hhGain, t, 0.05, 7200);
+            } else if (style === 'brush'){
+              if (i===0 || i===2) kick(ac, kickGain, t, 0.12, 186);
+              if (i===1 || i===3) snare(ac, snGain, t, 0.16);
+              hihat(ac, hhGain, t, 0.05, 7600);
+              if (i===2) hihat(ac, hhGain, t + beat*0.25, 0.04, 8800);
+            } else if (style === 'drive'){
+              if (i===0 || i===2) kick(ac, kickGain, t, 0.12, 196);
+              if (i===3) kick(ac, kickGain, t + beat*0.25, 0.10, 188);
+              if (i===1 || i===3) snare(ac, snGain, t, 0.18);
+              // 16th hats
+              for(let k=0;k<4;k++){
+                hihat(ac, hhGain, t + beat*(k*0.25), 0.035, 8600 + k*250);
+              }
+            } else if (style === 'four'){
+              // four-on-the-floor
+              kick(ac, kickGain, t, 0.11, 196);
+              if (i===1 || i===3) snare(ac, snGain, t, 0.16);
+              hihat(ac, hhGain, t, 0.05, 9200);
+              hihat(ac, hhGain, t + beat*0.5, 0.04, 10400);
+            } else {
+              // steady (default)
+              if (i===0 || i===2) kick(ac, kickGain, t, 0.12, 188);
+              if (i===1 || i===3) snare(ac, snGain, t, 0.18);
+              hihat(ac, hhGain, t, 0.06, 8000);
+              hihat(ac, hhGain, t + beat*0.5, 0.045, 9200);
+            }
           }
         }
       }
@@ -2560,15 +3410,19 @@
       function kick(ac, out, t, dur, baseFreq){
         const o = ac.createOscillator();
         const g = ac.createGain();
-        o.type = 'sine';
+        const hp = ac.createBiquadFilter();
+        hp.type = 'highpass';
+        hp.frequency.setValueAtTime(150, t);
+        hp.Q.value = 0.55;
+        o.type = 'triangle';
         o.frequency.setValueAtTime(baseFreq, t);
-        o.frequency.exponentialRampToValueAtTime(48, t + dur*0.85);
+        o.frequency.exponentialRampToValueAtTime(Math.max(155, baseFreq*0.78), t + dur*0.8);
         g.gain.setValueAtTime(0.0001, t);
-        g.gain.exponentialRampToValueAtTime(1.0, t + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.42, t + 0.008);
         g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-        o.connect(g).connect(out);
+        o.connect(g).connect(hp).connect(out);
         o.start(t); o.stop(t+dur+0.02);
-        audio.nodes.push(o, g);
+        audio.nodes.push(o, g, hp);
       }
 
       function snare(ac, out, t, dur){
@@ -2576,11 +3430,11 @@
         noise.buffer = whiteNoise(ac, dur);
         const bp = ac.createBiquadFilter();
         bp.type = 'bandpass';
-        bp.frequency.setValueAtTime(1800, t);
-        bp.Q.value = 0.8;
+        bp.frequency.setValueAtTime(2600, t);
+        bp.Q.value = 1.1;
         const g = ac.createGain();
         g.gain.setValueAtTime(0.0001, t);
-        g.gain.exponentialRampToValueAtTime(0.8, t+0.01);
+        g.gain.exponentialRampToValueAtTime(0.22, t+0.006);
         g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
         noise.connect(bp).connect(g).connect(out);
         noise.start(t); noise.stop(t+dur+0.02);
@@ -2596,7 +3450,7 @@
         hp.Q.value = 0.6;
         const g = ac.createGain();
         g.gain.setValueAtTime(0.0001, t);
-        g.gain.exponentialRampToValueAtTime(0.25, t+0.005);
+        g.gain.exponentialRampToValueAtTime(0.12, t+0.004);
         g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
         noise.connect(hp).connect(g).connect(out);
         noise.start(t); noise.stop(t+dur+0.02);
@@ -2607,115 +3461,263 @@
         const len = Math.floor(ac.sampleRate * dur);
         const buf = ac.createBuffer(1, len, ac.sampleRate);
         const data = buf.getChannelData(0);
-        for(let i=0;i<len;i++) data[i] = (Math.random()*2-1);
+        for(let i=0;i<len;i++) data[i] = (Math.random()*2-1) * 0.42;
         return buf;
       }
 
-      function scheduleBass(ac, master, reverb, start, beat, rootMidi, scale){
+      function scheduleBass(ac, master, reverb, start, beat, bars, profile){
+        const rootMidi = profile.rootMidi;
+        const scale = profile.scale;
+        const stepBeats = (profile.bass && profile.bass.step) ? profile.bass.step : 0.5;
+        const pattern = (profile.bass && profile.bass.pattern) ? profile.bass.pattern : [0,0,5,0, 0,7,5,0];
         const g = ac.createGain();
-        g.gain.value = 0.22;
+        g.gain.value = 0.045 + (profile.brightness||0.5)*0.025;
+        const hp = ac.createBiquadFilter();
+        hp.type = 'highpass';
+        hp.frequency.value = 260;
+        hp.Q.value = 0.55;
         const lp = ac.createBiquadFilter();
         lp.type = 'lowpass';
-        lp.frequency.value = 180 + 220;
-        g.connect(lp).connect(master);
+        lp.frequency.value = 950 + (profile.brightness||0.5)*900;
+        g.connect(hp).connect(lp).connect(master);
         lp.connect(reverb);
+        audio.nodes.push(g, hp, lp);
 
-        const pattern = [0,0,5,0, 0,7,5,0]; // scale degrees
-        for(let bar=0; bar<8; bar++){
-          for(let step=0; step<8; step++){
-            const t = start + (bar*4 + step*0.5) * beat;
-            const deg = pattern[(bar+step)%pattern.length];
-            const midi = rootMidi - 12 + scale[deg % scale.length];
-            bassNote(ac, g, t, beat*0.48, midi);
+        const stepsPerBar = Math.round(4 / stepBeats);
+        for(let bar=0; bar<bars; bar++){
+          for(let step=0; step<stepsPerBar; step++){
+            const t = start + (bar*4 + step*stepBeats) * beat;
+            const deg = pattern[(bar*stepsPerBar + step) % pattern.length];
+            const midi = rootMidi + scale[(deg|0) % scale.length];
+            const dur = beat * stepBeats * (profile.tag==='calm' ? 0.38 : 0.30);
+            bassNote(ac, g, t, dur, midi);
           }
         }
       }
 
       function bassNote(ac, out, t, dur, midi){
         const o = ac.createOscillator();
-        o.type = 'sawtooth';
+        o.type = 'triangle';
         const f = 440 * Math.pow(2, (midi-69)/12);
         o.frequency.setValueAtTime(f, t);
         const g = ac.createGain();
         g.gain.setValueAtTime(0.0001, t);
-        g.gain.exponentialRampToValueAtTime(0.9, t+0.02);
+        g.gain.exponentialRampToValueAtTime(0.34, t+0.012);
         g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
-        // subtle drive
-        const shaper = ac.createWaveShaper();
-        shaper.curve = makeDistCurve(80);
-        shaper.oversample = '2x';
-        o.connect(g).connect(shaper).connect(out);
+        const hp = ac.createBiquadFilter();
+        hp.type = 'highpass';
+        hp.frequency.setValueAtTime(280, t);
+        hp.Q.value = 0.5;
+        o.connect(g).connect(hp).connect(out);
         o.start(t); o.stop(t+dur+0.03);
-        audio.nodes.push(o,g,shaper);
+        audio.nodes.push(o,g,hp);
       }
 
-      function makeDistCurve(amount){
-        const n = 1024;
-        const curve = new Float32Array(n);
-        const k = typeof amount === 'number' ? amount : 50;
-        for(let i=0;i<n;i++){
-          const x = i*2/n - 1;
-          curve[i] = (1 + k) * x / (1 + k * Math.abs(x));
-        }
-        return curve;
-      }
-
-      function schedulePad(ac, master, reverb, start, beat, rootMidi, scale, brightness){
+      function schedulePad(ac, master, reverb, start, beat, bars, profile){
+        const rootMidi = profile.rootMidi;
+        const scale = profile.scale;
+        const brightness = profile.brightness || 0.5;
+        const localRng = mulberry32(profile.seed ^ 0x22a3b17f);
         const padGain = ac.createGain();
-        padGain.gain.value = 0.18 + brightness*0.10;
-        padGain.connect(master);
-        padGain.connect(reverb);
-        const chordProg = [0,5,3,4, 0,5,4,3]; // degrees
-        for(let bar=0; bar<8; bar++){
+        padGain.gain.value = 0.055 + brightness*0.04 + (profile.tag==='calm' ? 0.015 : 0);
+        const hp = ac.createBiquadFilter();
+        hp.type = 'highpass';
+        hp.frequency.value = 380;
+        hp.Q.value = 0.55;
+        padGain.connect(hp).connect(master);
+        hp.connect(reverb);
+        audio.nodes.push(padGain, hp);
+        const chordProg = (profile.pad && profile.pad.chordProg) ? profile.pad.chordProg : [0,5,3,4, 0,5,4,3];
+        const voicing = (profile.pad && profile.pad.voicing) ? profile.pad.voicing : 'triad';
+        for(let bar=0; bar<bars; bar++){
           const t = start + bar*4*beat;
           const deg = chordProg[bar % chordProg.length];
-          const root = rootMidi + scale[deg % scale.length];
-          padChord(ac, padGain, t, beat*4.0, [root, root+7, root+12], brightness);
+          const root = rootMidi + 12 + scale[deg % scale.length];
+          const midis = (() => {
+            if (voicing === 'sus2') return [root, root+2, root+7, root+12];
+            if (voicing === 'add9') return [root, root+7, root+14, root+12];
+            return [root, root+7, root+12];
+          })();
+          padChord(ac, padGain, t, beat*4.0, midis, brightness, localRng);
         }
       }
 
-      function padChord(ac, out, t, dur, midis, brightness){
+      function padChord(ac, out, t, dur, midis, brightness, rng){
+        let i = 0;
         for(const m of midis){
           const o = ac.createOscillator();
-          o.type = 'triangle';
+          o.type = 'sine';
           o.frequency.setValueAtTime(440*Math.pow(2,(m-69)/12), t);
+          // subtle detune for warmth (deterministic per play)
+          if (rng) o.detune.value = (rng()*2 - 1) * (0.8 + brightness*1.2);
           const g = ac.createGain();
           const a = 0.0001;
           g.gain.setValueAtTime(a, t);
-          g.gain.exponentialRampToValueAtTime(0.55, t+0.6);
-          g.gain.setValueAtTime(0.55, t+dur-0.9);
+          g.gain.exponentialRampToValueAtTime(0.22, t+0.45);
+          g.gain.setValueAtTime(0.22, t+dur-0.7);
           g.gain.exponentialRampToValueAtTime(a, t+dur);
 
+          const hp = ac.createBiquadFilter();
+          hp.type='highpass';
+          hp.frequency.setValueAtTime(440, t);
+          hp.Q.value = 0.5;
           const lp = ac.createBiquadFilter();
           lp.type='lowpass';
-          lp.frequency.setValueAtTime(500 + brightness*1200, t);
+          lp.frequency.setValueAtTime(1200 + brightness*1500, t);
           lp.Q.value = 0.5;
-          o.connect(g).connect(lp).connect(out);
+          // stereo widen: spread voices
+          const hasPan = !!ac.createStereoPanner;
+          if (hasPan){
+            const pan = ac.createStereoPanner();
+            const base = (midis.length<=1) ? 0 : (i/(midis.length-1))*2 - 1; // -1..1
+            const jitter = rng ? (rng()*2-1)*0.12 : 0;
+            pan.pan.setValueAtTime(clamp(base*0.38 + jitter, -0.55, 0.55), t);
+            o.connect(g).connect(hp).connect(lp).connect(pan).connect(out);
+            audio.nodes.push(pan);
+          } else {
+            o.connect(g).connect(hp).connect(lp).connect(out);
+          }
           o.start(t); o.stop(t+dur+0.02);
-          audio.nodes.push(o,g,lp);
+          audio.nodes.push(o,g,hp,lp);
+          i++;
         }
       }
 
-      function scheduleMelody(ac, master, reverb, start, beat, rootMidi, scale, brightness){
+      function scheduleMelody(ac, master, reverb, delaySend, start, beat, bars, profile){
+        const rootMidi = profile.rootMidi;
+        const scale = profile.scale;
+        const brightness = profile.brightness || 0.5;
         const leadGain = ac.createGain();
-        leadGain.gain.value = 0.11 + brightness*0.08;
-        leadGain.connect(master);
-        leadGain.connect(reverb);
-        const localRng = mulberry32(appSeed ^ 0x31415926);
-        for(let bar=0; bar<8; bar++){
-          for(let step=0; step<8; step++){
-            if (localRng() < 0.28) continue;
-            const t = start + (bar*4 + step*0.5) * beat;
-            const deg = Math.floor(localRng()*scale.length);
-            const oct = localRng()<0.18 ? 12 : 0;
+        leadGain.gain.value = 0.075 + brightness*0.045;
+        const leadHp = ac.createBiquadFilter();
+        leadHp.type = 'highpass';
+        leadHp.frequency.value = 520;
+        leadHp.Q.value = 0.55;
+        leadGain.connect(leadHp).connect(master);
+        leadHp.connect(reverb);
+        if (delaySend) leadHp.connect(delaySend);
+        audio.nodes.push(leadGain, leadHp);
+        const localRng = mulberry32(profile.seed ^ 0x31415926);
+        const density = (profile.melody && typeof profile.melody.density === 'number') ? profile.melody.density : 0.42;
+        const stepBeats = (profile.melody && profile.melody.step) ? profile.melody.step : 0.5;
+        const stepsPerBar = Math.round(4 / stepBeats);
+
+        // motif：让旋律更像“有主题”，并且每次播放都会变
+        const motifLen = (profile.tag === 'calm' ? 4 : (localRng()<0.5 ? 8 : 4));
+        const motif = [];
+        for(let i=0;i<motifLen;i++){
+          // cheerful bias: more chord tones (0/2/4/5/7)
+          const pick = localRng();
+          const cand = (scale.length >= 5)
+            ? [0,2,4,5,7].map(x => x % scale.length)
+            : [0,2,4].map(x => x % scale.length);
+          motif.push(pick < 0.72 ? cand[Math.floor(localRng()*cand.length)] : Math.floor(localRng()*scale.length));
+        }
+        const motifShift = Math.floor(localRng()*scale.length);
+        const swing = 0.06; // 轻微 swing，让旋律更“跳”
+        const humanize = (tt, stepIdx) => {
+          const sw = (stepBeats <= 0.5 && (stepIdx % 2 === 1)) ? (beat * swing) : 0;
+          return tt + sw + (localRng()*2 - 1) * beat * 0.02; // slight timing drift
+        };
+
+        for(let bar=0; bar<bars; bar++){
+          for(let step=0; step<stepsPerBar; step++){
+            const phraseBoost = (step % motifLen === 0) ? 0.12 : 0;
+            if (localRng() > (density + phraseBoost)) continue;
+            const t0 = start + (bar*4 + step*stepBeats) * beat;
+            const t = humanize(t0, step);
+            // motif-driven degree with occasional variation
+            let deg = motif[step % motifLen];
+            if (localRng() < 0.22) deg = (deg + motifShift + (localRng()<0.5 ? 1 : -1) + 16) % scale.length;
+            const oct = (profile.tag==='calm' ? 0 : (localRng()<0.22 ? 12 : 0));
             const midi = rootMidi + 12 + scale[deg] + oct;
-            leadNote(ac, leadGain, t, beat*(localRng()<0.2 ? 0.9 : 0.45), midi, brightness);
+            const longNote = localRng() < (profile.tag==='calm' ? 0.55 : 0.14);
+            const dur = beat*stepBeats*(longNote ? 1.35 : 0.78);
+            const style = (profile.melody && profile.melody.style) ? profile.melody.style : 'shimmer';
+            if (style === 'pluck') pluckNote(ac, leadGain, t, dur, midi, brightness);
+            else if (style === 'bell') bellNote(ac, leadGain, t, dur, midi, brightness);
+            else leadNote(ac, leadGain, t, dur, midi, brightness);
+
+            // grace note (小装饰音)：让旋律更欢快灵动
+            if (profile.tag !== 'calm' && localRng() < 0.22){
+              const gDeg = (deg + (localRng()<0.5 ? 1 : -1) + scale.length) % scale.length;
+              const gm = rootMidi + 12 + scale[gDeg] + oct;
+              pluckNote(ac, leadGain, t - beat*0.06, beat*0.10, gm, brightness);
+            }
+          }
+        }
+      }
+
+      function pluckNote(ac, out, t, dur, midi, brightness){
+        // short pluck (triangle + lowpass sweep)
+        const o = ac.createOscillator();
+        o.type = 'triangle';
+        const f = 440*Math.pow(2,(midi-69)/12);
+        o.frequency.setValueAtTime(f, t);
+        const g = ac.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.58, t+0.012);
+        g.gain.exponentialRampToValueAtTime(0.0001, t+Math.min(dur, 0.32));
+        const lp = ac.createBiquadFilter();
+        lp.type='lowpass';
+        lp.frequency.setValueAtTime(1800 + brightness*2300, t);
+        lp.frequency.exponentialRampToValueAtTime(980 + brightness*900, t+Math.min(dur, 0.35));
+        lp.Q.value = 0.7;
+        o.connect(g).connect(lp).connect(out);
+        o.start(t); o.stop(t+Math.min(dur,0.35)+0.02);
+        audio.nodes.push(o,g,lp);
+      }
+
+      function bellNote(ac, out, t, dur, midi, brightness){
+        // bell-ish (two sines with slight detune)
+        const f = 440*Math.pow(2,(midi-69)/12);
+        const o1 = ac.createOscillator();
+        const o2 = ac.createOscillator();
+        o1.type='sine'; o2.type='sine';
+        o1.frequency.setValueAtTime(f, t);
+        o2.frequency.setValueAtTime(f*(2.01 + brightness*0.06), t);
+        const g = ac.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.5, t+0.012);
+        g.gain.exponentialRampToValueAtTime(0.0001, t+Math.min(dur, 0.9));
+        o1.connect(g); o2.connect(g);
+        g.connect(out);
+        o1.start(t); o2.start(t);
+        o1.stop(t+Math.min(dur,0.95)+0.02);
+        o2.stop(t+Math.min(dur,0.95)+0.02);
+        audio.nodes.push(o1,o2,g);
+      }
+
+      function scheduleArp(ac, master, reverb, delaySend, start, beat, bars, profile){
+        const rootMidi = profile.rootMidi;
+        const scale = profile.scale;
+        const brightness = profile.brightness || 0.5;
+        const rate = profile.arp && profile.arp.rate ? profile.arp.rate : 0.25;
+        const stepsPerBar = Math.round(4 / rate);
+        const g = ac.createGain();
+        g.gain.value = 0.04 + brightness*0.035;
+        const hp = ac.createBiquadFilter();
+        hp.type = 'highpass';
+        hp.frequency.value = 520;
+        hp.Q.value = 0.5;
+        g.connect(hp).connect(master);
+        hp.connect(reverb);
+        if (delaySend) hp.connect(delaySend);
+        audio.nodes.push(g, hp);
+        const localRng = mulberry32(profile.seed ^ 0x9e3779b9);
+        for(let bar=0; bar<bars; bar++){
+          for(let step=0; step<stepsPerBar; step++){
+            const t = start + (bar*4 + step*rate) * beat;
+            if (localRng() < 0.18 && profile.tag!=='spark') continue;
+            const deg = (step + (bar%2)*2) % scale.length;
+            const midi = rootMidi + 12 + scale[deg] + (localRng()<0.12 ? 12 : 0);
+            pluckNote(ac, g, t, beat*rate*0.95, midi, brightness);
           }
         }
       }
 
       function leadNote(ac, out, t, dur, midi, brightness){
-        // simple FM-ish shimmer
+        // simple glassy shimmer, kept high and gentle
         const car = ac.createOscillator();
         const mod = ac.createOscillator();
         const modGain = ac.createGain();
@@ -2723,20 +3725,20 @@
         mod.type = 'sine';
         const f = 440*Math.pow(2,(midi-69)/12);
         car.frequency.setValueAtTime(f, t);
-        mod.frequency.setValueAtTime(f*(2 + brightness*2.2), t);
+        mod.frequency.setValueAtTime(f*(2.2 + brightness*1.1), t);
         modGain.gain.setValueAtTime(0, t);
-        modGain.gain.linearRampToValueAtTime(40 + brightness*120, t+0.02);
+        modGain.gain.linearRampToValueAtTime(8 + brightness*28, t+0.02);
         modGain.gain.linearRampToValueAtTime(0, t+dur);
         mod.connect(modGain).connect(car.frequency);
 
         const g = ac.createGain();
         g.gain.setValueAtTime(0.0001, t);
-        g.gain.exponentialRampToValueAtTime(1.0, t+0.02);
+        g.gain.exponentialRampToValueAtTime(0.5, t+0.02);
         g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
 
         const hp = ac.createBiquadFilter();
         hp.type='highpass';
-        hp.frequency.setValueAtTime(240, t);
+        hp.frequency.setValueAtTime(620, t);
         hp.Q.value=0.4;
 
         car.connect(g).connect(hp).connect(out);
@@ -2803,10 +3805,8 @@
 
         // auto advance question if idle
         if (scene === Scene.QUESTIONS){
-          if (t > idleAt){
-            recordQuestion();
-            qIndex++;
-            nextQuestion();
+          if (!qTransitioning && t > idleAt){
+            completeQuestion();
           }
         }
 
@@ -2822,9 +3822,17 @@
         const g = ctx;
         // background
         const bg = g.createLinearGradient(0,0,0,H);
-        bg.addColorStop(0, '#2b1231');
-        bg.addColorStop(0.4, '#130b17');
-        bg.addColorStop(1, '#07050a');
+        // 问答页：每题一个不同的氛围场，避免单调
+        if (scene === Scene.QUESTIONS){
+          const th = qTheme || QUESTION_THEMES[0];
+          bg.addColorStop(0, th.bg0);
+          bg.addColorStop(0.45, th.bg1);
+          bg.addColorStop(1, th.bg2);
+        } else {
+          bg.addColorStop(0, '#2b1231');
+          bg.addColorStop(0.4, '#130b17');
+          bg.addColorStop(1, '#07050a');
+        }
         g.fillStyle = bg;
         g.fillRect(0,0,W,H);
 
@@ -3035,7 +4043,50 @@
         drawBreathingOrb(g, t);
         // particles
         updateParticles();
+        updateRipples();
         drawParticles(g);
+        drawRipples(g);
+
+        // tiny feedback toast between questions
+        if (feedbackToast){
+          const u = clamp((t - feedbackToast.t0) / feedbackToast.dur, 0, 1);
+          const easeOut = (x) => 1 - Math.pow(1 - x, 3);
+          const easeIn = (x) => x*x*x;
+          const inDur = 0.22;
+          const outDur = 0.28;
+          const aIn = clamp(u / inDur, 0, 1);
+          const aOut = clamp((u - (1 - outDur)) / outDur, 0, 1);
+          const alpha = clamp(easeOut(aIn) * (1 - easeIn(aOut)), 0, 1);
+          const enter = easeOut(aIn);
+          const exit = easeIn(aOut);
+          const slide = (1 - enter) * (10*DPR) + exit * (8*DPR); // 渐入上浮，渐出轻微下沉
+          const scale = 0.985 + 0.015*enter; // 轻微缩放增强“呼吸感”
+          g.save();
+          g.globalAlpha = 0.94 * alpha;
+          const text = feedbackToast.text;
+          g.font = `800 ${Math.round(22*DPR)}px "Microsoft YaHei", system-ui`;
+          const padX = 18*DPR, padY = 12*DPR;
+          const tw = g.measureText(text).width;
+          const bw = tw + padX*2;
+          const bh = 60*DPR;
+          const bx = W*0.5 - bw*0.5;
+          const by = (H*0.18 - bh*0.5) + slide;
+          // scale around center
+          g.translate(W*0.5, by + bh*0.5);
+          g.scale(scale, scale);
+          g.translate(-W*0.5, -(by + bh*0.5));
+          g.fillStyle = 'rgba(12,6,20,.55)';
+          g.strokeStyle = 'rgba(255,255,255,.14)';
+          g.lineWidth = 2;
+          roundRect(g, bx, by, bw, bh, 18*DPR);
+          g.fill();
+          g.stroke();
+          g.fillStyle = 'rgba(255,233,210,.92)';
+          g.textAlign = 'center';
+          g.textBaseline = 'middle';
+          g.fillText(text, W*0.5, by + bh*0.52);
+          g.restore();
+        }
         // bubbles
         const tt = t*0.001;
         for(const b of bubbles){
@@ -3084,12 +4135,14 @@
         }
 
         // progress hint
-        const remain = clamp((idleAt - t) / 1000, 0, IDLE_TO_NEXT_MS/1000);
-        g.textAlign = 'center';
-        g.textBaseline = 'alphabetic';
-        g.fillStyle = 'rgba(255,233,210,.65)';
-        g.font = `${Math.round(14*DPR)}px "Microsoft YaHei", system-ui`;
-        g.fillText(`将于 ${remain.toFixed(1)}s 后自动记录`, W*0.5, H*0.84);
+        if (!qTransitioning){
+          const remain = clamp((idleAt - t) / 1000, 0, IDLE_TO_NEXT_MS/1000);
+          g.textAlign = 'center';
+          g.textBaseline = 'alphabetic';
+          g.fillStyle = 'rgba(255,233,210,.65)';
+          g.font = `${Math.round(14*DPR)}px "Microsoft YaHei", system-ui`;
+          g.fillText(`将于 ${remain.toFixed(1)}s 后自动记录`, W*0.5, H*0.84);
+        }
       }
 
       // ---------- Start ----------
