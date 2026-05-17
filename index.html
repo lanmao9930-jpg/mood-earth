@@ -29,6 +29,9 @@
     .hint{max-width:min(520px, 90vw); font-size:14px; line-height:1.55; color:var(--muted); text-align:center; text-shadow:0 2px 14px rgba(0,0,0,.35);}
     .title{font-size:26px; letter-spacing:.6px; text-align:center; margin:0; text-shadow:0 10px 26px rgba(0,0,0,.35);}
     .subtitle{font-size:14px; color:var(--muted); text-align:center; line-height:1.6; margin:0; max-width:min(560px, 92vw);}
+    .questionPrompt{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; width:min(620px, 88vw); pointer-events:none; text-shadow:0 10px 28px rgba(0,0,0,.45);}
+    .questionPrompt .title{font-size:20px; color:rgba(255,233,210,.76);}
+    .questionPrompt .subtitle{font-size:24px; font-weight:750; color:var(--txt); line-height:1.45;}
     .btnrow{display:flex; gap:12px; flex-wrap:wrap; align-items:center; justify-content:center; pointer-events:auto;}
     button{
       border:0;
@@ -1288,24 +1291,24 @@
         qTheme = QUESTION_THEMES[qIndex % QUESTION_THEMES.length] || QUESTION_THEMES[0];
         feedbackToast = null;
         setLayer(`
-          <h1 class="title" style="font-size:22px;">第 ${qIndex+1} / ${QUESTIONS.length} 题</h1>
-          <p class="subtitle">${q.q}</p>
+          <div class="questionPrompt">
+            <h1 class="title">第 ${qIndex+1} / ${QUESTIONS.length} 题</h1>
+            <p class="subtitle">${q.q}</p>
+          </div>
         `);
 
         // create bubbles
         const localRng = mulberry32(appSeed ^ hashStr(q.q));
         const n = q.opts.length;
         bubbles = [];
-        const cx = W*0.5, cy = H*0.54;
-        const R = Math.min(W,H) * 0.24;
         for(let i=0;i<n;i++){
-          const a = (i/n)*TAU + localRng()*0.35;
-          const rr = R*(0.75 + localRng()*0.3);
+          const base = (Math.min(W,H) * (0.052 + localRng()*0.015));
+          const pos = placeQuestionBubble(i, n, base, localRng);
           bubbles.push({
             key: q.opts[i],
-            x: cx + Math.cos(a)*rr,
-            y: cy + Math.sin(a)*rr*0.72,
-            base: (Math.min(W,H) * (0.052 + localRng()*0.015)),
+            x: pos.x,
+            y: pos.y,
+            base,
             r: 0,
             clicks: 0,
             hue: (qTheme.hueBase + (localRng()*28 - 14) + 360) % 360,
@@ -1315,6 +1318,81 @@
         for(const b of bubbles) b.r = b.base;
         idleAt = now() + IDLE_TO_NEXT_MS;
         lastInteractAt = now();
+      }
+
+      function questionSafeRect(){
+        const isNarrow = W < H * 0.78;
+        const safeW = Math.min(W * 0.78, (isNarrow ? 430 : 620) * DPR);
+        const safeH = Math.min(H * 0.26, (isNarrow ? 178 : 150) * DPR);
+        return {
+          x: W*0.5 - safeW*0.5,
+          y: H*0.5 - safeH*0.5,
+          w: safeW,
+          h: safeH
+        };
+      }
+
+      function circleHitsRect(cx, cy, r, rect, pad = 0){
+        const rx0 = rect.x - pad, ry0 = rect.y - pad;
+        const rx1 = rect.x + rect.w + pad, ry1 = rect.y + rect.h + pad;
+        const nx = clamp(cx, rx0, rx1);
+        const ny = clamp(cy, ry0, ry1);
+        const dx = cx - nx, dy = cy - ny;
+        return (dx*dx + dy*dy) < r*r;
+      }
+
+      function clampBubbleToScreen(p, r){
+        const m = Math.max(16*DPR, r*0.35);
+        return {
+          x: clamp(p.x, r + m, W - r - m),
+          y: clamp(p.y, r + m, H - r - m)
+        };
+      }
+
+      function placeQuestionBubble(i, n, r, localRng){
+        const safe = questionSafeRect();
+        const cx = W * 0.5;
+        const cy = H * 0.5;
+        const isNarrow = W < H * 0.78;
+        const angles6 = isNarrow
+          ? [-118, -62, -24, 24, 62, 118]
+          : [-150, -106, -34, 34, 106, 150];
+        const angles5 = isNarrow
+          ? [-112, -48, 0, 48, 112]
+          : [-155, -86, 0, 86, 155];
+        const list = n === 5 ? angles5 : angles6;
+        const baseDeg = list[i % list.length] != null ? list[i % list.length] : (-160 + i * (320 / Math.max(1, n-1)));
+        let best = null;
+        let bestScore = -1e9;
+        const rxBase = Math.max(safe.w*0.62 + r*1.55, Math.min(W*0.38, (isNarrow ? 190 : 330) * DPR));
+        const ryBase = Math.max(safe.h*0.92 + r*1.45, Math.min(H*0.31, (isNarrow ? 270 : 245) * DPR));
+        for(let tries=0; tries<20; tries++){
+          const a = (baseDeg + (localRng()*2 - 1) * (isNarrow ? 12 : 16)) * Math.PI / 180;
+          const rx = rxBase * (0.92 + localRng()*0.22);
+          const ry = ryBase * (0.88 + localRng()*0.24);
+          let p = {
+            x: cx + Math.cos(a) * rx,
+            y: cy + Math.sin(a) * ry
+          };
+          p.x += (localRng()*2 - 1) * r*0.55;
+          p.y += (localRng()*2 - 1) * r*0.55;
+          p = clampBubbleToScreen(p, r);
+
+          const dx = Math.max(safe.x - p.x, 0, p.x - (safe.x + safe.w));
+          const dy = Math.max(safe.y - p.y, 0, p.y - (safe.y + safe.h));
+          const distFromSafe = Math.hypot(dx, dy);
+          let score = distFromSafe - Math.abs(p.y - cy)*0.03;
+          if (circleHitsRect(p.x, p.y, r*1.35, safe, 18*DPR)) score -= 10000;
+          for(const b of bubbles){
+            const d = Math.hypot(p.x - b.x, p.y - b.y);
+            score += Math.min(80*DPR, d - (r + b.base + 14*DPR));
+          }
+          if (score > bestScore){
+            bestScore = score;
+            best = p;
+          }
+        }
+        return best || clampBubbleToScreen({ x: cx, y: cy }, r);
       }
 
       function recordQuestion(){
