@@ -1,0 +1,43 @@
+<view class="page">
+  <view class="top">
+    <button class="back" bindtap="goBack">‹</button>
+    <view>
+      <view class="title">你的情绪声纹</view>
+      <view class="sub">Mood Signal</view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="signature-name">{{signature.name}}</view>
+    <view class="frequency">{{signature.frequency}}</view>
+    <view class="summary">{{signature.summary}}</view>
+
+    <view class="signal-strip">
+      <view>
+        <view class="strip-label">声音信号</view>
+        <view class="strip-value">{{signature.signal.label}}</view>
+      </view>
+      <view>
+        <view class="strip-label">声纹质感</view>
+        <view class="strip-value">{{signature.signal.texture}}</view>
+      </view>
+    </view>
+
+    <view class="wave">
+      <view wx:for="{{bars}}" wx:key="index" style="height: {{item}}px;"></view>
+    </view>
+
+    <view class="tags">
+      <text wx:for="{{signature.tags}}" wx:key="*this">{{item}}</text>
+    </view>
+
+    <view class="insight">{{signature.insight}}</view>
+    <view class="desc">{{signature.desc}}</view>
+    <view class="sentence">“{{signature.sentence}}”</view>
+
+    <view class="actions">
+      <button class="secondary" bindtap="recalibrate">重新校准</button>
+      <button class="primary" bindtap="findMatch">进入全球共鸣</button>
+    </view>
+  </view>
+</view>

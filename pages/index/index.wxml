@@ -1,0 +1,111 @@
+<view class="page">
+  <view class="flow-layer" aria-hidden="true">
+    <view class="flow-line line-a"></view>
+    <view class="flow-line line-b"></view>
+    <view class="flow-line line-c"></view>
+  </view>
+
+  <view class="top-nav">
+    <view class="nav-item">探索<text>Explore</text></view>
+    <view class="nav-item">声纹图谱<text>Voice Map</text></view>
+    <view class="nav-item">同频<text>Match</text></view>
+    <view class="nav-item">关于我们<text>About</text></view>
+  </view>
+
+  <view class="utility">
+    <view class="utility-btn">○</view>
+    <view class="utility-btn">≋</view>
+    <view class="avatar"></view>
+  </view>
+
+  <view class="side-menu">
+    <view class="side-icon active">✦</view>
+    <view class="side-label active">情绪星球</view>
+    <view class="side-icon">≋</view>
+    <view class="side-label">声纹同频</view>
+    <view class="side-icon">○</view>
+    <view class="side-label">共享记忆</view>
+  </view>
+
+  <view class="brand">
+    <view class="brand-mark">MOOD EARTH</view>
+    <view class="title">Mood Earth</view>
+    <view class="title-cn">情绪声纹星球</view>
+    <view class="copy">把此刻的情绪放进一颗会流动的地球，寻找正在与你同频的人。</view>
+    <button class="primary" bindtap="handleStart">开始同频</button>
+  </view>
+
+  <view class="stage">
+    <view class="orbit orbit-a"></view>
+    <view class="orbit orbit-b"></view>
+    <canvas
+      id="earthCanvas"
+      type="2d"
+      class="earth-canvas"
+      bindtouchstart="onEarthTouchStart"
+      bindtouchmove="onEarthTouchMove"
+      bindtouchend="onEarthTouchEnd"
+      bindtouchcancel="onEarthTouchEnd"
+    ></canvas>
+
+    <view class="node node-a"></view>
+    <view class="node node-b"></view>
+    <view class="node node-c"></view>
+
+    <view class="city city-london"><text>London</text><text>伦敦</text></view>
+    <view class="city city-paris"><text>Paris</text><text>巴黎</text></view>
+    <view class="city city-chongqing"><text>Chongqing</text><text>重庆</text></view>
+    <view class="city city-newyork"><text>New York</text><text>纽约</text></view>
+    <view class="city city-tokyo"><text>Tokyo</text><text>东京</text></view>
+    <view class="city city-sydney"><text>Sydney</text><text>悉尼</text></view>
+  </view>
+
+  <view class="city-card">
+    <view class="card-close">×</view>
+    <view class="card-title">Tokyo</view>
+    <view class="card-cn">东京</view>
+    <view class="country">○ 日本</view>
+    <view class="preview"></view>
+    <view class="section-label">当前主导情绪</view>
+    <view class="mood-row">
+      <view class="mood-face">○</view>
+      <view>
+        <view class="mood-title">Hopeful</view>
+        <view class="mood-cn">希望</view>
+      </view>
+    </view>
+    <view class="section-label">在线情绪人数</view>
+    <view class="online-row">
+      <text class="online-num">1,248</text>
+      <text>人在</text>
+      <view class="tiny-avatar"></view>
+      <view class="tiny-avatar two"></view>
+      <view class="tiny-avatar three"></view>
+      <text>...</text>
+    </view>
+    <view class="section-label">匿名留言</view>
+    <view class="quote">“今天的天空很温柔，希望明天的我也是。”</view>
+  </view>
+
+  <view class="heat-card">
+    <view class="heat-label">今日共鸣人数</view>
+    <view class="heat-num">24,189</view>
+    <view class="heat-grow">+12.6%</view>
+    <view class="bars">
+      <view></view><view></view><view></view><view></view>
+    </view>
+  </view>
+
+  <view class="planet-bar">
+    <text>星球热度</text>
+    <view class="mini-planets">
+      <view></view><view></view><view></view><view class="active"></view><view></view>
+    </view>
+  </view>
+
+  <view class="chart-card">
+    <view class="chart-title">情绪分布<text>（全球实时）</text></view>
+    <view class="wave"></view>
+    <view class="legend">Lonely / Hope / Calm / Energy / Anxious</view>
+  </view>
+</view>

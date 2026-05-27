@@ -1,0 +1,217 @@
+.page {
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(216,219,255,.82), transparent 32%),
+    radial-gradient(circle at 68% 62%, rgba(255,205,210,.24), transparent 36%),
+    linear-gradient(135deg, #fff8eb 0%, #eaf6ff 46%, #f3edff 100%);
+  color: #56518d;
+}
+
+.page::before {
+  content: "";
+  position: absolute;
+  left: 10vw;
+  right: 8vw;
+  top: 34vh;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(126,139,219,.32), rgba(255,188,182,.28), transparent);
+  box-shadow: 0 0 26px rgba(126,139,219,.18);
+  transform: rotate(-14deg);
+  animation: flow 8s ease-in-out infinite;
+}
+
+@keyframes flow {
+  0%, 100% { opacity: .38; margin-top: 0; }
+  50% { opacity: .95; margin-top: 18px; }
+}
+
+.top {
+  position: absolute;
+  z-index: 2;
+  top: calc(env(safe-area-inset-top) + 22px);
+  left: 30px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.back {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  color: #817dd0;
+  background: rgba(255,255,255,.62);
+}
+
+.title {
+  font-size: 26px;
+  color: #615ca3;
+  font-weight: 650;
+}
+
+.sub {
+  margin-top: 4px;
+  font-size: 13px;
+  color: rgba(97,92,163,.62);
+}
+
+.card {
+  position: relative;
+  z-index: 1;
+  width: min(620px, calc(100vw - 42px));
+  margin: 17vh auto 0;
+  padding: 30px;
+  border-radius: 30px;
+  background: rgba(255,255,255,.68);
+  border: 1px solid rgba(139,136,204,.2);
+  box-shadow: 0 32px 90px rgba(112,122,188,.18);
+  backdrop-filter: blur(24px);
+  text-align: center;
+}
+
+.signature-name {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 44px;
+  color: #736fc0;
+}
+
+.frequency {
+  margin-top: 8px;
+  color: #8b89d7;
+  font-size: 16px;
+}
+
+.summary {
+  margin-top: 10px;
+  color: rgba(95,90,157,.72);
+  font-size: 13px;
+}
+
+.signal-strip {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 12px;
+  margin-top: 22px;
+  padding: 14px 16px;
+  border-radius: 20px;
+  background: rgba(255,255,255,.52);
+  border: 1px solid rgba(139,136,204,.14);
+  text-align: left;
+}
+
+.strip-label {
+  color: #8b86c7;
+  font-size: 11px;
+}
+
+.strip-value {
+  margin-top: 5px;
+  color: #555095;
+  font-size: 14px;
+  line-height: 1.45;
+  font-weight: 650;
+}
+
+.wave {
+  height: 132px;
+  margin: 28px auto 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border-radius: 26px;
+  background: rgba(255,255,255,.48);
+}
+
+.wave view {
+  width: 5px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #8f8be6, #b4c8ff);
+  box-shadow: 0 0 16px rgba(143,139,230,.24);
+}
+
+.tags {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.tags text {
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.62);
+  color: #706bb0;
+  border: 1px solid rgba(139,136,204,.16);
+}
+
+.insight {
+  margin: 22px auto 0;
+  max-width: 490px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  color: #5f5a9d;
+  font-size: 14px;
+  line-height: 1.7;
+  background: rgba(255,255,255,.52);
+  border: 1px solid rgba(139,136,204,.14);
+}
+
+.desc {
+  margin: 18px auto 0;
+  max-width: 460px;
+  color: #5f5a9d;
+  font-size: 16px;
+  line-height: 1.75;
+}
+
+.sentence {
+  margin: 18px auto 0;
+  max-width: 470px;
+  color: #746fb8;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.primary {
+  width: 100%;
+  height: 56px;
+  border-radius: 18px;
+  color: #fff;
+  background: linear-gradient(135deg, #9c98eb, #8d91de);
+}
+
+.secondary {
+  width: 100%;
+  height: 56px;
+  border-radius: 18px;
+  color: #716cb0;
+  background: rgba(255,255,255,.66);
+  border: 1px solid rgba(139,136,204,.18);
+}
+
+@media (max-width: 760px) {
+  .top { left: 18px; }
+  .title { font-size: 22px; }
+  .card {
+    width: calc(100vw - 36px);
+    margin-top: 16vh;
+    padding: 22px;
+    border-radius: 24px;
+  }
+  .signature-name { font-size: 34px; }
+  .signal-strip { grid-template-columns: 1fr; }
+  .wave { height: 116px; margin: 22px auto 18px; }
+  .desc { font-size: 14px; }
+  .actions { grid-template-columns: 1fr; }
+}

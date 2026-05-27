@@ -1,0 +1,56 @@
+<view class="page">
+  <view class="top">
+    <button class="back" bindtap="goBack">‹</button>
+    <view>
+      <view class="title">情绪校准</view>
+      <view class="sub">把此刻的频率调出来，再交给 Mood Earth</view>
+    </view>
+  </view>
+
+  <view class="orb"></view>
+
+  <view class="panel">
+    <view class="frequency-card">
+      <view class="frequency-icon" style="background: {{selectedMood.color}};">{{selectedMood.icon}}</view>
+      <view>
+        <view class="frequency-title">{{selectedMood.label}} / {{selectedNeed.label}}</view>
+        <view class="frequency-copy">{{selectedMood.tone}}，声音质感接近 {{selectedSignal.label}}</view>
+      </view>
+    </view>
+
+    <view class="step">01 / 选择此刻最接近你的光</view>
+    <view class="grid">
+      <view wx:for="{{moods}}" wx:key="value" class="chip {{form.mood === item.value ? 'active' : ''}}" data-value="{{item.value}}" bindtap="selectMood">
+        <text>{{item.icon}}</text>{{item.label}}
+      </view>
+    </view>
+
+    <view class="step">02 / 你希望世界怎样回应你</view>
+    <view class="grid small">
+      <view wx:for="{{needs}}" wx:key="value" class="chip {{form.need === item.value ? 'active' : ''}}" data-value="{{item.value}}" bindtap="selectNeed">{{item.label}}</view>
+    </view>
+
+    <view class="step">03 / 选择你的声音信号</view>
+    <view class="signal-grid">
+      <view wx:for="{{soundSignals}}" wx:key="value" class="signal-chip {{form.signal === item.value ? 'active' : ''}}" data-value="{{item.value}}" bindtap="selectSignal">
+        <view class="signal-dot" style="background: {{item.color}};"></view>
+        <view>
+          <view class="signal-name">{{item.label}}</view>
+          <view class="signal-text">{{item.texture}}</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="step">04 / 把强度调到真实的位置</view>
+    <view class="slider-row">
+      <text>轻</text>
+      <slider value="{{form.intensity}}" min="1" max="10" activeColor="#918be6" backgroundColor="#ddd8ff" block-color="#ffffff" bindchange="changeIntensity" />
+      <text>{{form.intensity}}</text>
+    </view>
+
+    <view class="step">05 / 把此刻留给地球</view>
+    <textarea value="{{form.sentence}}" placeholder="例如：我想安静一点，但也希望有人听见我。" maxlength="60" bindinput="changeSentence"></textarea>
+
+    <button class="primary" bindtap="submit">生成我的情绪声纹</button>
+  </view>
+</view>

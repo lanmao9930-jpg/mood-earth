@@ -1,0 +1,17 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/globe/globe",
+    "pages/calibration/calibration",
+    "pages/signature/signature",
+    "pages/match/match",
+    "pages/create/create"
+  ],
+  "window": {
+    "navigationStyle": "custom",
+    "backgroundColor": "#f6f0ff",
+    "backgroundTextStyle": "light"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

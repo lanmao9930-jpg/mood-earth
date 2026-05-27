@@ -1,0 +1,40 @@
+<view class="page">
+  <view class="flow-line line-a"></view>
+  <view class="flow-line line-b"></view>
+
+  <view class="top">
+    <button class="back" bindtap="goBack">‹</button>
+    <view>
+      <view class="title">探索情绪星球</view>
+      <view class="sub">拖动地球，选择一个想发送情绪的位置</view>
+    </view>
+  </view>
+
+  <view class="orbit orbit-a"></view>
+  <view class="orbit orbit-b"></view>
+  <canvas
+    id="globeCanvas"
+    type="2d"
+    class="globe"
+    bindtouchstart="onTouchStart"
+    bindtouchmove="onTouchMove"
+    bindtouchend="onTouchEnd"
+    bindtouchcancel="onTouchEnd"
+  ></canvas>
+
+  <view class="city city-a">London<text>伦敦</text></view>
+  <view class="city city-b">Paris<text>巴黎</text></view>
+  <view class="city city-c">Tokyo<text>东京</text></view>
+  <view class="city city-d">Chongqing<text>重庆</text></view>
+
+  <view class="card">
+    <view class="card-title">Tokyo</view>
+    <view class="card-cn">东京 / 日本</view>
+    <view class="image"></view>
+    <view class="label">当前主导情绪</view>
+    <view class="mood">○ Hopeful <text>希望</text></view>
+    <view class="label">匿名留言</view>
+    <view class="quote">“今天的天空很温柔，希望明天的我也是。”</view>
+    <button class="primary" bindtap="startSync">开始校准</button>
+  </view>
+</view>

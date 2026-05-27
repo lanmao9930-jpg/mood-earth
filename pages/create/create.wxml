@@ -1,0 +1,50 @@
+<view class="page">
+  <view class="nav">EARTH / FREQUENCY / MEMORY / MUSIC</view>
+  <view class="ai-pill">○ Mood AI</view>
+
+  <view class="memory-card">
+    <view class="label">{{memory.shareTitle}}</view>
+    <view class="poem">{{memory.posterLine}}</view>
+    <view class="caption">{{memory.title}}</view>
+    <view class="quote">“{{person.quote}}”</view>
+    <view class="music-brief">
+      <view class="brief-label">跨文化音乐结构</view>
+      <view class="brief-text">{{memory.music}}</view>
+    </view>
+    <view class="mix-steps">
+      <view class="step-pill" wx:for="{{memory.steps}}" wx:key="*this">{{index + 1}} / {{item}}</view>
+    </view>
+    <view class="layer-list">
+      <view class="layer-item" wx:for="{{memory.layers}}" wx:key="name">
+        <text>{{item.name}}</text>
+        <view>{{item.value}}</view>
+      </view>
+    </view>
+    <view class="poster-preview">
+      <view class="poster-top">{{memory.poster.brand}}</view>
+      <view class="poster-title">{{memory.poster.title}}</view>
+      <view class="poster-line">{{memory.poster.line}}</view>
+      <view class="poster-meta">{{memory.poster.route}} / {{memory.poster.signal}} / {{memory.poster.duration}}</view>
+    </view>
+  </view>
+
+  <canvas id="particleCanvas" type="2d" class="particle"></canvas>
+
+  <view class="player">
+    <button class="play" bindtap="togglePlay">{{playing ? 'Ⅱ' : '▶'}}</button>
+    <view class="bars">
+      <view wx:for="{{bars}}" wx:key="index" style="height: {{item}}px;"></view>
+    </view>
+    <view class="save" bindtap="saveMemory">保存</view>
+  </view>
+  <view class="time-row">
+    <text>{{playing ? memory.duration : '00:03'}}</text>
+    <button bindtap="saveMemory">Save / Copy</button>
+  </view>
+
+  <view class="actions">
+    <button open-type="share">分享卡片</button>
+    <button bindtap="rematch">重新匹配</button>
+    <button bindtap="home">返回首页</button>
+  </view>
+</view>
