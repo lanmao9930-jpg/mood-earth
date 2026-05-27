@@ -5,8 +5,8 @@
   <view class="top">
     <button class="back" bindtap="goBack">‹</button>
     <view>
-      <view class="title">探索情绪星球</view>
-      <view class="sub">拖动地球，选择一个想发送情绪的位置</view>
+      <view class="title">进入 Mood Earth</view>
+      <view class="sub">地球正在定位你此刻的情绪坐标</view>
     </view>
   </view>
 
@@ -22,19 +22,19 @@
     bindtouchcancel="onTouchEnd"
   ></canvas>
 
-  <view class="city city-a">London<text>伦敦</text></view>
-  <view class="city city-b">Paris<text>巴黎</text></view>
-  <view class="city city-c">Tokyo<text>东京</text></view>
-  <view class="city city-d">Chongqing<text>重庆</text></view>
+  <view class="city city-a">London<text>温暖回声</text></view>
+  <view class="city city-b">Paris<text>期待轨道</text></view>
+  <view class="city city-c">Tokyo<text>蓝色低频</text></view>
+  <view class="city city-d">Chongqing<text>夜间波纹</text></view>
 
   <view class="card">
-    <view class="card-title">Tokyo</view>
-    <view class="card-cn">东京 / 日本</view>
+    <view class="card-title">Current Position</view>
+    <view class="card-cn">匿名定位 / 情绪入口</view>
     <view class="image"></view>
-    <view class="label">当前主导情绪</view>
-    <view class="mood">○ Hopeful <text>希望</text></view>
-    <view class="label">匿名留言</view>
-    <view class="quote">“今天的天空很温柔，希望明天的我也是。”</view>
-    <button class="primary" bindtap="startSync">开始校准</button>
+    <view class="label">当前地球情绪天气</view>
+    <view class="mood">○ Floating <text>等待校准</text></view>
+    <view class="label">下一步</view>
+    <view class="quote">不用回答一组问题，只需要把光、声音和强度慢慢调到真实的位置。</view>
+    <button class="primary" bindtap="startSync">开始情绪校准</button>
   </view>
 </view>

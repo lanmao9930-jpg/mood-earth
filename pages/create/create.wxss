@@ -54,6 +54,13 @@
   line-height: 1.7;
 }
 
+.lock-line {
+  margin-bottom: 12px;
+  color: rgba(255,255,255,.78);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
 .label {
   margin-bottom: 10px;
   color: rgba(255,255,255,.52);
@@ -76,6 +83,21 @@
 
 .music-brief {
   margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.1);
+  text-align: left;
+}
+
+.creation-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.creation-box {
   padding: 12px 14px;
   border-radius: 16px;
   background: rgba(255,255,255,.08);
@@ -175,6 +197,51 @@
   margin-top: 12px;
   color: rgba(255,255,255,.52);
   font-size: 11px;
+}
+
+.atlas {
+  display: grid;
+  grid-template-columns: 1fr 160px;
+  gap: 14px;
+  align-items: center;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.1);
+  text-align: left;
+}
+
+.atlas-line {
+  margin-top: 6px;
+  color: rgba(255,255,255,.72);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.atlas-map {
+  position: relative;
+  height: 44px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(111,143,207,.22), rgba(213,151,120,.18), rgba(117,170,164,.22));
+  overflow: hidden;
+}
+
+.atlas-point {
+  position: absolute;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: rgba(255,255,255,.38);
+}
+
+.atlas-point.active {
+  width: 15px;
+  height: 15px;
+  background: #ffc7bd;
+  box-shadow: 0 0 0 9px rgba(255,199,189,.18), 0 0 26px rgba(255,139,134,.44);
 }
 
 .particle {
@@ -280,6 +347,10 @@
   }
   .layer-list {
     display: none;
+  }
+  .creation-grid,
+  .atlas {
+    grid-template-columns: 1fr;
   }
   .player {
     bottom: 14vh;

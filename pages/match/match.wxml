@@ -2,8 +2,8 @@
   <view class="top">
     <button class="back" bindtap="goBack">‹</button>
     <view>
-      <view class="title">全球共鸣</view>
-      <view class="sub">先看世界上的情绪热区，再选择想共创的人</view>
+      <view class="title">全球热力匹配</view>
+      <view class="sub">先看情绪热区，再选择你想一起同频共创的信号</view>
     </view>
   </view>
 
@@ -19,16 +19,23 @@
 
   <view class="signal">
     <view class="signal-title">{{signature.name}}</view>
-    <view>{{signature.strength}} / {{signature.need.label}} / {{signature.signal.label}}</view>
+    <view>{{signature.frequencyHz}}Hz / {{signature.strength}} / {{signature.signal.label}}</view>
+    <view class="signal-copy">{{signature.body.label}} · {{signature.need.label}}</view>
   </view>
 
   <view class="heat-panel">
     <view class="heat-title">{{moodMap.headline}}</view>
     <view class="heat-sub">{{moodMap.subline}}</view>
+    <view class="layer-list">
+      <view wx:for="{{moodMap.layers}}" wx:key="name" class="layer-pill">
+        <text>{{item.label}}</text>
+        <view>{{item.value}}</view>
+      </view>
+    </view>
     <view class="city-row" wx:for="{{moodMap.cities}}" wx:key="city">
       <view class="city-name">{{item.city}}</view>
-      <view class="heat-track"><view class="heat-fill {{item.active ? 'active' : ''}}" style="width: {{item.heat}}%;"></view></view>
-      <view class="city-meta">{{item.moodLabel}} / {{item.people}}</view>
+      <view class="heat-track"><view class="heat-fill {{item.active ? 'active' : ''}}" style="width: {{item.resonancePotential}}%;"></view></view>
+      <view class="city-meta">{{item.resonancePotential}}%</view>
     </view>
   </view>
 
@@ -37,12 +44,12 @@
       <view class="avatar">{{item.initial}}</view>
       <view class="info">
         <view class="name">{{item.name}} <text>{{item.score}}%</text></view>
+        <view class="type">{{item.matchType.label}} · {{item.matchType.intent}}</view>
         <view class="meta">{{item.city}}, {{item.country}} / {{item.tagText}}</view>
-        <view class="meta">声音画像：{{item.sound.label}} / {{item.culture}}</view>
         <view class="reason">{{item.reason}}</view>
-        <view class="quote">“{{item.quote}}”</view>
+        <view class="memory-hint">{{item.potentialMemory.exportFormat}} · {{item.potentialMemory.visual}}</view>
       </view>
-      <view class="action">共创</view>
+      <view class="action">锁定</view>
     </view>
   </view>
 </view>

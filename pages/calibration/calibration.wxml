@@ -2,35 +2,51 @@
   <view class="top">
     <button class="back" bindtap="goBack">‹</button>
     <view>
-      <view class="title">情绪校准</view>
-      <view class="sub">把此刻的频率调出来，再交给 Mood Earth</view>
+      <view class="title">定位此刻的情绪坐标</view>
+      <view class="sub">不要回答问题，慢慢把你的频率调出来</view>
     </view>
   </view>
 
-  <view class="orb"></view>
+  <view class="orb" style="background: radial-gradient(circle at 36% 28%, rgba(255,255,255,.92), transparent 20%), radial-gradient(circle at 52% 56%, {{selectedMood.color}}, {{selectedSignal.color}} 52%, rgba(255,255,255,.48) 82%);"></view>
 
   <view class="panel">
     <view class="frequency-card">
       <view class="frequency-icon" style="background: {{selectedMood.color}};">{{selectedMood.icon}}</view>
       <view>
-        <view class="frequency-title">{{selectedMood.label}} / {{selectedNeed.label}}</view>
-        <view class="frequency-copy">{{selectedMood.tone}}，声音质感接近 {{selectedSignal.label}}</view>
+        <view class="frequency-title">{{emotionSignal.frequency}}Hz / {{selectedMood.label}}</view>
+        <view class="frequency-copy">{{emotionSignal.ritualLine}}</view>
       </view>
     </view>
 
-    <view class="step">01 / 选择此刻最接近你的光</view>
+    <view class="locator">
+      <view>
+        <view class="locator-label">Current Emotional Position</view>
+        <view class="locator-value">{{selectedBody.label}} · {{selectedNeed.label}}</view>
+      </view>
+      <view class="locator-pulse"></view>
+    </view>
+
+    <view class="step">01 / 把光点拖向最接近你的情绪天气</view>
     <view class="grid">
       <view wx:for="{{moods}}" wx:key="value" class="chip {{form.mood === item.value ? 'active' : ''}}" data-value="{{item.value}}" bindtap="selectMood">
         <text>{{item.icon}}</text>{{item.label}}
       </view>
     </view>
 
-    <view class="step">02 / 你希望世界怎样回应你</view>
+    <view class="step">02 / 这份情绪更像停在身体的哪里</view>
+    <view class="body-grid">
+      <view wx:for="{{bodyZones}}" wx:key="value" class="body-chip {{form.body === item.value ? 'active' : ''}}" data-value="{{item.value}}" bindtap="selectBody">
+        <view>{{item.label}}</view>
+        <text>{{item.texture}}</text>
+      </view>
+    </view>
+
+    <view class="step">03 / 你希望世界怎样回应你</view>
     <view class="grid small">
       <view wx:for="{{needs}}" wx:key="value" class="chip {{form.need === item.value ? 'active' : ''}}" data-value="{{item.value}}" bindtap="selectNeed">{{item.label}}</view>
     </view>
 
-    <view class="step">03 / 选择你的声音信号</view>
+    <view class="step">04 / 选择这段情绪的声音材质</view>
     <view class="signal-grid">
       <view wx:for="{{soundSignals}}" wx:key="value" class="signal-chip {{form.signal === item.value ? 'active' : ''}}" data-value="{{item.value}}" bindtap="selectSignal">
         <view class="signal-dot" style="background: {{item.color}};"></view>
@@ -41,14 +57,22 @@
       </view>
     </view>
 
-    <view class="step">04 / 把强度调到真实的位置</view>
+    <view class="step">05 / 调整它离你的距离和强度</view>
     <view class="slider-row">
-      <text>轻</text>
+      <text>远</text>
       <slider value="{{form.intensity}}" min="1" max="10" activeColor="#918be6" backgroundColor="#ddd8ff" block-color="#ffffff" bindchange="changeIntensity" />
       <text>{{form.intensity}}</text>
     </view>
 
-    <view class="step">05 / 把此刻留给地球</view>
+    <view class="voiceprint-preview">
+      <view class="voiceprint-title">正在形成你的情绪声纹</view>
+      <view class="voice-bars">
+        <view wx:for="{{emotionSignal.waveform}}" wx:key="index" style="height: {{item}}px; background: {{selectedMood.color}};"></view>
+      </view>
+      <view class="voiceprint-meta">{{selectedSignal.texture}} · {{selectedBody.texture}}</view>
+    </view>
+
+    <view class="step">06 / 如果愿意，把这一刻留给地球</view>
     <textarea value="{{form.sentence}}" placeholder="例如：我想安静一点，但也希望有人听见我。" maxlength="60" bindinput="changeSentence"></textarea>
 
     <button class="primary" bindtap="submit">生成我的情绪声纹</button>

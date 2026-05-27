@@ -3,14 +3,28 @@
     <button class="back" bindtap="goBack">‹</button>
     <view>
       <view class="title">你的情绪声纹</view>
-      <view class="sub">Mood Signal</view>
+      <view class="sub">Mood Earth 已经把这一刻转换成可匹配的频率</view>
     </view>
   </view>
 
   <view class="card">
     <view class="signature-name">{{signature.name}}</view>
-    <view class="frequency">{{signature.frequency}}</view>
+    <view class="frequency">{{signature.frequencyHz}}Hz / {{signature.frequency}}</view>
     <view class="summary">{{signature.summary}}</view>
+
+    <view class="voiceprint">
+      <view class="voice-head">
+        <view>
+          <view class="strip-label">Emotional Voiceprint</view>
+          <view class="strip-value">{{emotionSignal.body.label}} · {{signature.strength}}</view>
+        </view>
+        <view class="voice-dot" style="background: {{signature.mood.color}};"></view>
+      </view>
+      <view class="wave">
+        <view wx:for="{{signature.waveform}}" wx:key="index" style="height: {{item}}px;"></view>
+      </view>
+      <view class="voice-line">{{emotionSignal.ritualLine}}</view>
+    </view>
 
     <view class="signal-strip">
       <view>
@@ -18,13 +32,9 @@
         <view class="strip-value">{{signature.signal.label}}</view>
       </view>
       <view>
-        <view class="strip-label">声纹质感</view>
-        <view class="strip-value">{{signature.signal.texture}}</view>
+        <view class="strip-label">身体坐标</view>
+        <view class="strip-value">{{signature.body.texture}}</view>
       </view>
-    </view>
-
-    <view class="wave">
-      <view wx:for="{{bars}}" wx:key="index" style="height: {{item}}px;"></view>
     </view>
 
     <view class="tags">
@@ -37,7 +47,7 @@
 
     <view class="actions">
       <button class="secondary" bindtap="recalibrate">重新校准</button>
-      <button class="primary" bindtap="findMatch">进入全球共鸣</button>
+      <button class="primary" bindtap="findMatch">进入全球热力匹配</button>
     </view>
   </view>
 </view>

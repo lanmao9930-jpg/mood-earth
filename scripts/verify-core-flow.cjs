@@ -164,19 +164,27 @@ for (const mood of moodCore.moods) {
       sentence: "verify"
     };
     const signature = moodCore.buildSignature(emotion);
+    const emotionSignal = moodCore.buildEmotionSignal(emotion);
     const moodMap = moodCore.buildMoodMap(emotion);
     const matches = moodCore.findMatches(emotion);
     const memory = moodCore.buildMemory(emotion, moodCore.findPerson(matches[0].id));
 
+    assert(emotionSignal.frequency && emotionSignal.waveform.length >= 6, `emotion signal missing voiceprint for ${mood.value}/${signal.value}`);
+    assert(signature.voiceprint && signature.frequencyHz, `signature missing voiceprint fields for ${mood.value}/${signal.value}`);
     assert(signature.summary.includes(signal.label), `signature missing signal for ${mood.value}/${signal.value}`);
+    assert(moodMap.layers.length >= 3, "mood map should expose heat imaging layers");
     assert(moodMap.cities.length >= 5, "mood map should expose city heat data");
+    assert(moodMap.cities.every((item) => item.resonancePotential && item.creationHint), "mood map cities missing resonance potential");
     assert(matches.length === 3, "match page should expose three soul profiles");
     assert(matches.every((item) => item.reason && item.sound && item.culture), "match profiles missing persona detail");
+    assert(matches.every((item) => item.matchType && item.lockLine && item.potentialMemory), "match profiles missing resonance lock detail");
     assert(memory.layers.length >= 3, "memory should expose music layers");
     assert(memory.steps.length >= 4, "memory should expose generation steps");
     assert(memory.shareTitle && memory.posterLine && memory.duration, "memory should expose share card fields");
     assert(memory.id && memory.shareText, "memory should expose persistence and share text fields");
     assert(memory.poster && memory.poster.brand && memory.poster.route && memory.poster.signal, "memory should expose structured poster fields");
+    assert(memory.particle && memory.exportMemory && memory.exportMemory.format === "MP4", "memory should expose particle visual and MP4 export");
+    assert(memory.atlasPoint && memory.atlasPoint.lit, "memory should light one point on the daily atlas");
     combinations += 1;
   }
 }
@@ -195,6 +203,7 @@ withMockWx((calls, storage) => {
   calibration.selectMood({ currentTarget: { dataset: { value: "warm" } } });
   calibration.selectNeed({ currentTarget: { dataset: { value: "talk" } } });
   calibration.selectSignal({ currentTarget: { dataset: { value: "heartbeat" } } });
+  calibration.selectBody({ currentTarget: { dataset: { value: "hands" } } });
   calibration.changeIntensity({ detail: { value: 8 } });
   calibration.changeSentence({ detail: { value: "hello" } });
   calibration.submit();
@@ -216,6 +225,8 @@ withMockWx((calls, storage) => {
   assert(calls.some((call) => call.type === "showShareMenu"), "create should enable share menu on load");
   create.togglePlay();
   assert(create.data.playing === true, "create togglePlay should update playing state");
+  create.exportMp4Memory();
+  assert(create.data.exported === true, "create exportMp4Memory should mark MP4 memory preview exported");
   create.saveMemory();
   assert(Array.isArray(storage.moodEarthMemories) && storage.moodEarthMemories.length === 1, "create saveMemory should persist memory");
   assert(calls.some((call) => call.type === "setClipboardData" && call.options.data.includes("Mood Earth")), "create saveMemory should copy share text");

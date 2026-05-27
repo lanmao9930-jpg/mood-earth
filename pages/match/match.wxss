@@ -137,6 +137,11 @@
   font-size: 24px;
 }
 
+.signal-copy {
+  margin-top: 6px;
+  color: rgba(119,115,183,.78);
+}
+
 .heat-panel {
   position: absolute;
   z-index: 3;
@@ -163,6 +168,31 @@
   color: #7773b7;
   font-size: 12px;
   line-height: 1.5;
+}
+
+.layer-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.layer-pill {
+  padding: 9px 10px;
+  border-radius: 14px;
+  background: rgba(255,255,255,.46);
+  border: 1px solid rgba(139,136,204,.12);
+}
+
+.layer-pill text {
+  color: #555095;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.layer-pill view {
+  margin-top: 3px;
+  color: #7773b7;
+  font-size: 11px;
 }
 
 .city-row {
@@ -257,6 +287,23 @@
   color: #7773b7;
   font-size: 12px;
   word-break: break-word;
+}
+
+.type {
+  margin-top: 4px;
+  color: #8b89d7;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.memory-hint {
+  margin-top: 6px;
+  padding: 7px 9px;
+  border-radius: 12px;
+  color: #5f5a9d;
+  background: rgba(145,139,230,.12);
+  font-size: 11px;
+  line-height: 1.45;
 }
 
 .reason {

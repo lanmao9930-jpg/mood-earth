@@ -102,6 +102,34 @@
   text-align: left;
 }
 
+.voiceprint {
+  margin-top: 22px;
+  padding: 16px;
+  border-radius: 24px;
+  background: rgba(255,255,255,.5);
+  border: 1px solid rgba(139,136,204,.14);
+}
+
+.voice-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  text-align: left;
+}
+
+.voice-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 10px rgba(143,139,230,.14), 0 0 26px rgba(143,139,230,.28);
+}
+
+.voice-line {
+  color: #6f69ad;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
 .strip-label {
   color: #8b86c7;
   font-size: 11px;

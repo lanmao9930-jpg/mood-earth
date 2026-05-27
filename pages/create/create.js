@@ -7,6 +7,14 @@ Page({
     person: moodCore.findPerson("echo"),
     signature: moodCore.buildSignature(moodCore.defaultEmotion()),
     memory: moodCore.buildMemory(moodCore.defaultEmotion(), moodCore.findPerson("echo")),
+    exported: false,
+    atlasLights: [
+      { left: 18, active: false },
+      { left: 32, active: false },
+      { left: 46, active: false },
+      { left: 64, active: true },
+      { left: 78, active: false }
+    ],
     bars: [14, 22, 34, 18, 28, 40, 26, 16, 32, 46, 30, 20, 38, 24, 18, 34, 42, 26, 16, 28, 36, 20, 30, 24]
   },
 
@@ -89,6 +97,16 @@ Page({
       data: this.data.memory.shareText,
       success: () => {
         wx.showToast({ title: "记忆已保存，文案已复制", icon: "none" });
+      }
+    });
+  },
+
+  exportMp4Memory() {
+    this.setData({ exported: true });
+    wx.setClipboardData({
+      data: `${this.data.memory.shareText} / ${this.data.memory.exportMemory.line}`,
+      success: () => {
+        wx.showToast({ title: "MP4 记忆已生成预览，分享文案已复制", icon: "none" });
       }
     });
   },

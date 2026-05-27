@@ -4,6 +4,7 @@ Page({
   data: {
     emotion: moodCore.defaultEmotion(),
     signature: moodCore.buildSignature(moodCore.defaultEmotion()),
+    emotionSignal: moodCore.buildEmotionSignal(moodCore.defaultEmotion()),
     bars: [22, 36, 54, 72, 92, 70, 48, 34, 58, 88, 116, 84, 62, 38, 50, 76, 104, 80, 58, 40, 28]
   },
 
@@ -11,7 +12,8 @@ Page({
     const emotion = moodCore.decodeEmotion(options.emotion);
     this.setData({
       emotion,
-      signature: moodCore.buildSignature(emotion)
+      signature: moodCore.buildSignature(emotion),
+      emotionSignal: moodCore.buildEmotionSignal(emotion)
     });
   },
 
