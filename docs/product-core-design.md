@@ -51,6 +51,271 @@ Select mood -> Get result -> Match person
 
 because it gives the user an artifact and a memory, not only a result.
 
+## End-to-End Experience Architecture
+
+The product should feel like one continuous emotional ritual, not a set of separate pages.
+
+The ideal first-time and returning-user flow:
+
+```text
+Enter Earth
+-> Locate Current Emotional Position
+-> Calibrate Emotion Through Interaction
+-> Generate Emotional Voiceprint / Frequency
+-> Reveal Global Heat Imaging
+-> Show Match Candidates and Resonance Scores
+-> User Chooses a Resonance Partner
+-> Resonance Lock
+-> Co-create Music + Particle Visual
+-> Export a Short MP4 Memory
+-> Light One Point on the Daily Memory Map
+```
+
+### 1. Enter Earth
+
+The first screen should not be a marketing landing page or a menu. It should immediately place the user inside the Mood Earth world.
+
+User feeling:
+
+```text
+I am entering an emotional planet that can receive my current state.
+```
+
+UI direction:
+
+- A living Earth or emotional field appears first.
+- The user's approximate location or current "signal origin" slowly emerges.
+- The interface should create a soft sense of arrival, not ask questions immediately.
+- A previous memory point can glow faintly if the user has used the product before.
+
+Product reason:
+
+The user needs to feel that Mood Earth is a world, not a utility. This makes every later action feel meaningful.
+
+### 2. Locate Current Emotional Position
+
+Before calibration, the system should suggest that the user is being gently located emotionally and spatially.
+
+This does not need to be a precise real GPS product feature at the beginning. It can be a designed emotional positioning moment.
+
+Possible signals:
+
+- local time
+- city or region
+- recent saved emotional pattern
+- chosen visibility mode
+- current global emotional weather
+
+User feeling:
+
+```text
+Mood Earth is finding where I am, both in the world and inside myself.
+```
+
+Product reason:
+
+This gives the transition into emotional calibration a strong reason. The calibration is not a test; it is tuning the user's current signal.
+
+### 3. Emotional Calibration Without Quiz UI
+
+The emotion input must avoid simple answer-card behavior.
+
+Better interaction patterns:
+
+- Drag a light point through an emotional field.
+- Tune an orbit until it stabilizes.
+- Adjust a sound texture by sliding across rain, wind, heartbeat, ocean, city, strings.
+- Let the user place their emotion closer to body, sky, sea, city, or night.
+- Let the sentence input be optional, appearing only after the signal has shape.
+- Use micro-animation so every choice changes color, particle density, pulse speed, and tone.
+
+Calibration dimensions:
+
+- mood: the emotional weather
+- need: what response the user wants
+- intensity: how close or strong the emotion feels
+- texture: how the emotion sounds
+- body/spatial feeling: where the emotion lives
+- sentence: a private line if the user wants to name it
+
+Product reason:
+
+The user should feel they are discovering their emotional signal, not filling out a form.
+
+### 4. Emotional Voiceprint / Frequency
+
+After calibration, Mood Earth should generate a visible and audible emotional voiceprint.
+
+This is the user's personal signal for this session.
+
+It should include:
+
+- frequency name
+- waveform or orbit shape
+- color spectrum
+- pulse speed
+- sound texture
+- short emotional interpretation
+- shareable but private-feeling summary
+
+Example:
+
+```text
+Soft Blue Tide
+Low-frequency rain texture
+Main need: being understood
+Signal strength: 7.2
+```
+
+Product reason:
+
+The voiceprint is the bridge between private emotion and global matching. It gives the system something concrete to send into the world.
+
+### 5. Global Heat Imaging and Match Discovery
+
+The heatmap should appear after the voiceprint, because now the user understands what signal is being searched.
+
+The heat imaging should show:
+
+- global emotional heat
+- cities with similar frequencies
+- resonance potential around the user's signal
+- emotional density and intensity
+- match candidates with scores
+
+The match view should combine macro and micro layers:
+
+- Macro: living Earth heat field.
+- Mid: city resonance zones.
+- Micro: 3-5 candidate signals with match score, mood, need, sound texture, city, and reason.
+
+Product reason:
+
+The user should first feel the scale of the world, then choose a specific person or signal. This prevents matching from feeling random or shallow.
+
+### 6. User Choice Before Resonance Lock
+
+The user should choose who to resonate with.
+
+The product should not auto-lock too quickly, because choosing gives agency and emotional consent.
+
+Candidate cards should show:
+
+- city
+- anonymous name or signal name
+- resonance score
+- shared emotion
+- complementary difference
+- sound texture
+- what can be created together
+
+Example:
+
+```text
+Seoul / Mori_08
+87% resonance
+Shared: quiet, low-frequency wind, wanting company
+Potential memory: slow blue-green orbit with wind and distant room tone
+```
+
+Product reason:
+
+Choice makes the later co-created artifact feel more personal. The user feels they selected this resonance, not that the system forced it.
+
+### 7. Resonance Lock
+
+After the user chooses a candidate, the product needs a clear locking ritual.
+
+Experience:
+
+- The user's signal and the partner's signal move into the same field.
+- The heatmap narrows into one route or orbital line.
+- Particles from both signals begin to mix.
+- A faint music layer appears before the final creation.
+- The resonance score stabilizes.
+
+Product reason:
+
+This moment creates anticipation and emotional weight. It marks the transition from discovery to co-creation.
+
+### 8. Music + Particle Co-creation
+
+The result should be a short generated memory, not only a static page.
+
+The artifact should contain:
+
+- a short music loop or music simulation
+- a unique particle visual
+- title
+- cities or signal route
+- shared mood and need
+- resonance score
+- generation timestamp
+- one poetic line
+
+The particle visual should not be a generic poster. It should visibly encode the two signals:
+
+- two color families merging
+- two particle motions becoming one orbit
+- density shaped by intensity
+- route or distance shown subtly
+- shared need as the center glow
+
+Product reason:
+
+This is the payoff. The user came with an invisible feeling and leaves with something visible, audible, and ownable.
+
+### 9. Exportable MP4 Memory
+
+The strongest share object should be a short MP4-style memory page, even if the first implementation simulates it.
+
+The export should feel like:
+
+```text
+8-15 seconds
+music pulse
+animated particles
+title and shared signal
+Mood Earth mark
+```
+
+Download/share options:
+
+- save image
+- save short video / MP4 when supported
+- copy memory text
+- save to Memory Atlas
+- share card
+
+Product reason:
+
+MP4 gives the artifact motion and sound. It is more spreadable than a static card and more emotionally convincing than text.
+
+### 10. Light One Point on the Daily Memory Map
+
+After saving or sharing, the system should show that today's emotional memory has been added to the user's map.
+
+This should be a final reward moment:
+
+```text
+One point lights up on today's Memory Atlas.
+```
+
+The point should store:
+
+- date
+- emotional voiceprint
+- partner signal
+- city/country
+- generated music memory
+- generated particle image/video
+- match score
+- user's sentence if provided
+
+Product reason:
+
+This turns one session into long-term retention. The user has a reason to return because their emotional map is growing day by day.
+
 ## Feature 1: Emotion Signal
 
 Every user input should become an `Emotion Signal`, not just a form record.
@@ -287,4 +552,3 @@ Build in this order:
 - Make every screen feel like part of a continuous emotional ritual.
 - The product should not explain too much on screen. It should let interaction and visual feedback carry the meaning.
 - The strongest visual signature should be the living Earth heat field and the co-created particle memory.
-
